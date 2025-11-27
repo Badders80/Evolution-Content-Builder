@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution Content Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Evolution Stables Brand Theme - Light Mode */
+            --background: #ffffff;
+            --foreground: #0a0a0a;
+            --card: #fafafa;
+            --card-foreground: #0a0a0a;
+            --popover: #ffffff;
+            --popover-foreground: #0a0a0a;
+            
+            /* Evolution Stables Gold */
+            --brand-gold: #d4a964;
+            --brand-gold-hover: #c49954;
+            --primary: #d4a964;
+            --primary-foreground: #ffffff;
+            --primary-hover: #c49954;
+            
+            --secondary: #f4f4f5;
+            --secondary-foreground: #0a0a0a;
+            --muted: #f4f4f5;
+            --muted-foreground: #71717a;
+            --accent: #6366f1;
+            --accent-foreground: #fafafa;
+            --destructive: #ef4444;
+            --destructive-foreground: #fafafa;
+            --border: #e4e4e7;
+            --input: #ffffff;
+            --ring: #d4a964;
+            --radius: 0.5rem;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: var(--background);
+            color: var(--foreground);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 0;
+            min-height: 100vh;
+            background: var(--background);
+        }
+        
+        .sidebar {
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            height: 100vh;
+            overflow-y: auto;
+            position: sticky;
+            top: 0;
+        }
+        
+        .sidebar h2 {
+            color: var(--muted-foreground);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        
+        .section-card {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .section-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+        
+        .section-card:last-child {
+            margin-bottom: 0;
+        }
+        
+        #dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 4px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background: var(--background);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            background: var(--input);
+            color: var(--foreground);
+            transition: all 0.15s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--ring);
+            box-shadow: 0 0 0 3px rgba(212, 169, 100, 0.15);
+        }
+        
+        input::placeholder, textarea::placeholder {
+            color: var(--muted-foreground);
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        
+        .dropzone-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        #dropzone:hover, #dropzone.dragover {
+            background: var(--muted);
+            border-color: var(--primary);
+        }
+        
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .asset-item {
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--secondary);
+            position: relative;
+        }
+        
+        .asset-item:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .asset-item.selected {
+            border-color: var(--primary);
+            background: rgba(212, 169, 100, 0.1);
+            box-shadow: 0 0 0 2px rgba(212, 169, 100, 0.3);
+        }
+        
+        .asset-item.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 0.25rem;
+            right: 0.25rem;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .asset-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        select, textarea, button {
+            width: 100%;
+            margin-bottom: 1rem;
+            background: var(--background);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1rem;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            width: 100%;
+            padding: 0.625rem 1.25rem;
+            background: var(--secondary);
+            color: var(--secondary-foreground);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: 'Inter', sans-serif;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        button:hover:not(:disabled) {
+            background: var(--muted);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button#generateBtn {
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            margin-top: 1.5rem;
+            padding: 0.875rem 1.25rem;
+            font-size: 0.9375rem;
+            font-weight: 700;
+            letter-spacing: 0.025em;
+        }
+        
+        button#generateBtn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            box-shadow: 0 0 20px rgba(212, 169, 100, 0.4);
+        }
+        
+        button#regenerateBtn {
+            background: var(--secondary);
+            color: var(--secondary-foreground);
+            border: 1px solid var(--border);
+            margin-top: 0.5rem;
+            box-shadow: none;
+        }
+        
+        button#regenerateBtn:hover:not(:disabled) {
+            background: var(--muted);
+            border-color: var(--primary);
+        }
+        
+        .preview {
+            background: var(--background);
+            padding: 1.5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+        
+        .device-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            justify-content: center;
+        }
+        
+        .device-toggle button {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            background: var(--secondary);
+            color: var(--foreground);
+            cursor: pointer;
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            width: auto;
+        }
+        
+        .device-toggle button.active {
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border-color: var(--primary);
+        }
+        
+        .device-toggle button:hover:not(.active) {
+            border-color: var(--primary);
+            background: var(--muted);
+        }
+        
+        #outputPreview {
+            background: #f9fafb;
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+            overflow: auto;
+            border: 1.5px solid var(--border);
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        #outputPreview iframe {
+            border: none;
+            border-radius: 4px;
+            display: block;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        /* Device sizes */
+        #outputPreview.desktop iframe {
+            width: 210mm;
+            height: 297mm;
+            transform: scale(0.9);
+            transform-origin: center center;
+        }
+        
+        #outputPreview.tablet iframe {
+            width: 768px;
+            height: 1024px;
+            transform: scale(0.65);
+            transform-origin: center center;
+        }
+        
+        #outputPreview.phone iframe {
+            width: 375px;
+            height: 667px;
+            transform: scale(1.2);
+            transform-origin: center center;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .button-group button {
+            flex: 1;
+            background: var(--secondary);
+            color: var(--foreground);
+            border: 1px solid var(--border);
+            box-shadow: none;
+        }
+        
+        .button-group button:hover:not(:disabled) {
+            background: var(--muted);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        #placeholderLink {
+            color: var(--secondary);
+            word-break: break-all;
+            font-style: italic;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--muted-foreground);
+            font-style: italic;
+        }
+        
+        .input-content {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            color: var(--secondary);
+        }
+    </style>
+</head>
+<body>
+    <main class="dashboard container-fluid">
+        <section class="sidebar">
+            <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
+                <h1 style="color: var(--primary); margin: 0 0 0.25rem 0; font-weight: 700; font-size: 1.25rem; letter-spacing: -0.025em;">Evolution</h1>
+                <p style="color: var(--muted-foreground); font-size: 0.8125rem; margin: 0;">Content Builder</p>
+            </div>
+            
+            <div class="section-card">
+                <h2>Select Template</h2>
+                <select id="templateSelect">
+                    <option value="">Auto-detect from content</option>
+                    <option value="pre-race">Pre-Race Update</option>
+                    <option value="post-race">Post-Race Report</option>
+                    <option value="trainer-update">Trainer Update</option>
+                    <option value="upcoming-race">Upcoming Race</option>
+                </select>
+            </div>
+            
+            <div class="section-card">
+                <h2>Select LLM</h2>
+                <select id="llmSelect">
+                    <option value="gemini">Gemini 3 Pro Preview (Active) ✅</option>
+                    <option value="local">Local LLM (Offline)</option>
+                    <option value="openai">OpenAI GPT-4 (Offline)</option>
+                    <option value="grok">Grok API (Offline)</option>
+                    <option value="none">No AI Polish</option>
+                </select>
+            </div>
+            
+            <div class="section-card">
+                <h2>Content Text</h2>
+                <textarea id="textInput" placeholder="Type or paste your content here..."></textarea>
+            </div>
+            
+            <div class="section-card">
+                <h2>Attachments</h2>
+                <div id="dropzone">
+                    <div class="dropzone-label" onclick="document.getElementById('fileInput').click()" style="cursor: pointer;">
+                        Drag/drop files or click to upload images
+                    </div>
+                </div>
+                <input type="file" multiple id="fileInput" style="display:none;" accept="image/*,video/*">
+                <div id="inputContent" class="input-content"></div>
+            </div>
+            
+            <div class="section-card">
+                <h2>Select Assets</h2>
+                <div class="asset-grid" id="assetSelector"></div>
+            </div>
+            
+            <div class="section-card">
+                <h2>Add Tagline</h2>
+                <select id="taglineSelect">
+                    <option value="">Select a tagline...</option>
+                </select>
+            </div>
+            
+            <div class="section-card">
+                <h2>AI Suggestions</h2>
+                <textarea id="suggestions" placeholder="Add style notes, emphasis, or creative direction for AI image generation..."></textarea>
+            </div>
+            
+            <button onclick="generate()" id="generateBtn">Generate Content</button>
+            <button onclick="regenerate()" id="regenerateBtn" disabled>Regenerate</button>
+        </section>
+        
+        <section class="preview">
+            <div class="preview-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="color: var(--foreground); margin: 0; font-weight: 600; font-size: 1.125rem;">Preview</h2>
+                    <div class="device-toggle">
+                        <button class="active" onclick="setDeviceView('desktop')">💻 Desktop</button>
+                        <button onclick="setDeviceView('tablet')">📱 Tablet</button>
+                        <button onclick="setDeviceView('phone')">📱 Phone</button>
+                    </div>
+                </div>
+                
+                <div id="outputPreview" class="desktop">
+                    <div class="loading">
+                        <p>Generated content will appear here</p>
+                        <p style="font-size: 0.9rem; opacity: 0.7;">Add inputs and click Generate to start</p>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="exportHTML()" id="exportHTMLBtn" disabled>Export HTML</button>
+                    <button onclick="exportPDF()" id="exportPDFBtn" disabled>Export PDF</button>
+                </div>
+                
+                <p>Shareable Link: <span id="placeholderLink">Will generate after content creation</span></p>
+            </div>
+        </section>
+    </main>
+    
+    <script>
+        let currentHTML = '';
+        let selectedAssets = [];
+        let pastedContent = '';
+        let uploadedFiles = [];
+        let currentDevice = 'desktop';
+        
+        // Device view toggle
+        function setDeviceView(device) {
+            currentDevice = device;
+            const preview = document.getElementById('outputPreview');
+            const buttons = document.querySelectorAll('.device-toggle button');
+            
+            // Update active button
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update preview class
+            preview.className = device;
+        }
+        
+        // Load taglines
+        fetch('/api/taglines')
+            .then(r => r.json())
+            .then(data => {
+                const select = document.getElementById('taglineSelect');
+                data.taglines.forEach(tagline => {
+                    const option = document.createElement('option');
+                    option.value = tagline;
+                    option.textContent = tagline;
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => console.error('Failed to load taglines:', err));
+        
+        // Load assets
+        fetch('/api/assets')
+            .then(r => r.json())
+            .then(data => {
+                const grid = document.getElementById('assetSelector');
+                data.assets.forEach(asset => {
+                    const div = document.createElement('div');
+                    div.className = 'asset-item';
+                    div.innerHTML = `<img src="${asset}" alt="Asset">`;
+                    div.onclick = () => toggleAsset(div, asset);
+                    grid.appendChild(div);
+                });
+            })
+            .catch(err => console.error('Failed to load assets:', err));
+        
+        // Dropzone handlers
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const inputContent = document.getElementById('inputContent');
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        // Text input handler
+        const textInput = document.getElementById('textInput');
+        textInput.addEventListener('input', (e) => {
+            pastedContent = e.target.value;
+            updateInputDisplay();
+        });
+        
+        // Paste handler for images
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const file = item.getAsFile();
+                    handleFiles([file]);
+                }
+            }
+        });
+        
+        function handleFiles(files) {
+            uploadedFiles = [...uploadedFiles, ...Array.from(files)];
+            updateInputDisplay();
+        }
+        
+        function updateInputDisplay() {
+            let display = '';
+            if (pastedContent) {
+                display += pastedContent;
+            }
+            if (uploadedFiles.length > 0) {
+                display += `\n\n[${uploadedFiles.length} file(s) uploaded]`;
+            }
+            inputContent.textContent = display || 'No inputs yet';
+        }
+        
+        function toggleAsset(element, asset) {
+            element.classList.toggle('selected');
+            const index = selectedAssets.indexOf(asset);
+            if (index > -1) {
+                selectedAssets.splice(index, 1);
+            } else {
+                selectedAssets.push(asset);
+            }
+        }
+        
+        async function generate() {
+            const generateBtn = document.getElementById('generateBtn');
+            const preview = document.getElementById('outputPreview');
+            
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            preview.innerHTML = '<div class="loading"><p>Generating content...</p></div>';
+            
+            const formData = new FormData();
+            formData.append('inputs', pastedContent);
+            formData.append('assets', selectedAssets.join(','));
+            formData.append('tagline', document.getElementById('taglineSelect').value);
+            formData.append('suggestions', document.getElementById('suggestions').value);
+            formData.append('template', document.getElementById('templateSelect').value);
+            formData.append('llm', document.getElementById('llmSelect').value);
+            
+            uploadedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                currentHTML = data.html;
+                
+                // Display in iframe
+                const iframe = document.createElement('iframe');
+                iframe.srcdoc = currentHTML;
+                preview.innerHTML = '';
+                preview.appendChild(iframe);
+                
+                // Enable export buttons
+                document.getElementById('exportHTMLBtn').disabled = false;
+                document.getElementById('exportPDFBtn').disabled = false;
+                document.getElementById('regenerateBtn').disabled = false;
+                
+                // Update link
+                document.getElementById('placeholderLink').textContent = `evolution-content-${data.slug}-${Date.now()}.html`;
+                
+            } catch (err) {
+                preview.innerHTML = `<div class="loading"><p style="color: #ff6b6b;">Error: ${err.message}</p></div>`;
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Content';
+            }
+        }
+        
+        // Progressive preview building
+        function buildProgressivePreview() {
+            const template = document.getElementById('templateSelect').value;
+            const selectedAssets = Array.from(document.querySelectorAll('.asset-checkbox:checked')).map(cb => cb.value);
+            
+            if (!template) {
+                preview.innerHTML = '<div class="loading"><p>Select a template to begin...</p></div>';
+                return;
+            }
+            
+            // Find Evolution logo from selected assets
+            let logoUrl = '';
+            selectedAssets.forEach(asset => {
+                if (asset.toLowerCase().includes('evolution') && asset.toLowerCase().includes('logo')) {
+                    logoUrl = asset;
+                }
+            });
+            
+            // Template name mapping
+            const templateNames = {
+                'post-race': 'Post-Race Report',
+                'pre-race': 'Pre-Race Update',
+                'trainer-update': 'Trainer Update',
+                'upcoming-race': 'Upcoming Race'
+            };
+            
+            // Build progressive HTML
+            const progressiveHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Cormorant Garamond', 'Playfair Display', serif;
+            background: #ffffff;
+            color: #0b0b0b;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #d4a964;
+            margin-bottom: 40px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .brand-logo {
+            height: 50px;
+            width: auto;
+            max-width: 300px;
+        }
+        .brand-name {
+            font-family: 'Inter', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #0b0b0b;
+        }
+        .template-name {
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            color: #666;
+            text-align: right;
+        }
+        .content-placeholder {
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-style: italic;
+            border: 2px dashed #d4a964;
+            padding: 40px;
+            margin: 40px 0;
+            border-radius: 8px;
+        }
+        .footer {
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 2px solid #d4a964;
+            text-align: center;
+        }
+        .footer-tagline {
+            font-size: 18px;
+            font-style: italic;
+            color: #d4a964;
+            margin-bottom: 20px;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .footer-links a {
+            color: #666;
+            text-decoration: none;
+        }
+        .footer-links a:hover {
+            color: #d4a964;
+        }
+        .footer-social {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .social-icon {
+            width: 24px;
+            height: 24px;
+            fill: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Evolution Stables" class="brand-logo">` : '<div class="brand-name">Evolution Stables</div>'}
+        </div>
+        <div class="template-name">${templateNames[template] || 'Report'}</div>
+    </div>
+    
+    <div class="content-placeholder">
+        Add content and click "Generate Content" to see your polished report here...
+    </div>
+    
+    <div class="footer">
+        <div class="footer-tagline">From paddocks to protocols—ownership, evolved.</div>
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Contact</a>
+        </div>
+        <div class="footer-social">
+            <svg class="social-icon" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>
+            <svg class="social-icon" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+            <svg class="social-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        </div>
+    </div>
+</body>
+</html>`;
+            
+            // Display progressive preview
+            const iframe = document.createElement('iframe');
+            iframe.srcdoc = progressiveHTML;
+            preview.innerHTML = '';
+            preview.appendChild(iframe);
+        }
+        
+        // Add event listeners for progressive building
+        document.getElementById('templateSelect').addEventListener('change', buildProgressivePreview);
+        
+        // Update asset selection to rebuild preview
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('asset-checkbox')) {
+                buildProgressivePreview();
+            }
+        });
+        
+        // Device view switching
+        function setDeviceView(device) {
+            const preview = document.getElementById('outputPreview');
+            const buttons = document.querySelectorAll('.device-toggle button');
+            
+            // Remove active class from all buttons
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Update preview class
+            preview.className = device;
+            
+            // Update iframe viewport if content exists
+            const iframe = preview.querySelector('iframe');
+            if (iframe && currentHTML) {
+                let updatedHTML = currentHTML;
+                
+                // Set viewport width based on device
+                const viewportWidths = {
+                    'desktop': '210mm',
+                    'tablet': '768px',
+                    'phone': '375px'
+                };
+                
+                // Inject viewport meta tag
+                const viewportTag = `<meta name="viewport" content="width=${viewportWidths[device]}, initial-scale=1.0">`;
+                
+                if (updatedHTML.includes('<meta name="viewport"')) {
+                    updatedHTML = updatedHTML.replace(/<meta name="viewport"[^>]*>/, viewportTag);
+                } else {
+                    updatedHTML = updatedHTML.replace('<head>', `<head>${viewportTag}`);
+                }
+                
+                iframe.srcdoc = updatedHTML;
+            }
+        }
+        
+        function regenerate() {
+            generate();
+        }
+        
+        function exportHTML() {
+            if (!currentHTML) return;
+            
+            const blob = new Blob([currentHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `evolution-content-${Date.now()}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function exportPDF() {
+            if (!currentHTML) return;
+            
+            // Create temporary element
+            const element = document.createElement('div');
+            element.innerHTML = currentHTML;
+            
+            // Use html2pdf if available
+            if (typeof html2pdf !== 'undefined') {
+                html2pdf().from(element).save(`evolution-content-${Date.now()}.pdf`);
+            } else {
+                alert('PDF export requires html2pdf.js library. Opening print dialog instead.');
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(currentHTML);
+                printWindow.document.close();
+                printWindow.print();
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+</body>
+</html>
