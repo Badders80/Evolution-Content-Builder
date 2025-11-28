@@ -57,9 +57,9 @@ app.add_middleware(
 if os.path.exists("assets"):
     app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
-# Mount React build assets (production)
-if os.path.exists("builder-ui/dist/assets"):
-    app.mount("/assets-ui", StaticFiles(directory="builder-ui/dist/assets"), name="ui-assets")
+# Mount React build static assets (production)
+if os.path.exists("builder-ui/dist/static"):
+    app.mount("/static", StaticFiles(directory="builder-ui/dist/static"), name="react-static")
 
 # API Keys (will be set from environment or config)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")

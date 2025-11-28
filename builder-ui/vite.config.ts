@@ -27,5 +27,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    assetsDir: 'static',  // Use /static/ instead of /assets/ to avoid conflict with brand assets
   },
 })
