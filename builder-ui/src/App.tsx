@@ -19,6 +19,7 @@
 import { useMemo, useState } from 'react'
 import AppShell from './components/layout/AppShell'
 import { stage1Analyze, stage1Rewrite } from './lib/api'
+import { StudioPanel } from './components/Studio'
 import type { Stage1AnalyzeResponse, Stage1Content, Stage1RewriteRequest, Stage1RewriteResponse, ToneType, LengthType, AudienceType, PresetType } from './types/stage1'
 
 const PRESET_OPTIONS: { value: PresetType; label: string }[] = [
@@ -253,6 +254,12 @@ function App() {
                   )}
                 </div>
               </div>
+
+              {/* Studio Panel - NotebookLM-style features */}
+              <StudioPanel 
+                content={rawText} 
+                title={content?.headline || undefined}
+              />
             </section>
 
             {/* Structured Output */}

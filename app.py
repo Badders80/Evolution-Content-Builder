@@ -29,6 +29,15 @@ import os
 import json
 import requests
 from lib.prompts import build_prompt, build_stage1_prompt
+from lib.studio import (
+    STUDIO_TYPES, get_studio_types,
+    build_mindmap_prompt, parse_mindmap_response,
+    build_slides_prompt, parse_slides_response, render_slides_html,
+    build_quiz_prompt, parse_quiz_response,
+    build_flashcard_prompt, parse_flashcard_response,
+    build_audio_script_prompt, parse_audio_script_response,
+    build_report_prompt, parse_report_response,
+)
 # Temporarily disabled due to version conflicts
 # import torch
 # from diffusers import DiffusionPipeline
@@ -657,6 +666,131 @@ async def stage1_rewrite(req: Stage1RewriteRequest):
         fallback["error"] = "gemini_rewrite_failed"
         fallback["message"] = "Gemini rewrite failed; returning fallback content."
         return JSONResponse(status_code=502, content=fallback)
+
+
+# ============================================================
+# STUDIO ENDPOINTS (NotebookLM-style features)
+# ============================================================
+
+class StudioRequest(BaseModel):
+    content: str
+    output_type: str  # mindmap, slides, quiz, flashcards, audio_script, report
+    title: Optional[str] = None
+
+
+@app.get("/studio/types")
+async def get_available_studio_types():
+    """Get available Studio output types."""
+    return get_studio_types()
+
+
+@app.post("/studio/generate")
+async def studio_generate(req: StudioRequest):
+    """Generate Studio content (mind map, slides, quiz, etc.)."""
+    output_type = req.output_type.lower()
+    content = req.content.strip()
+    title = req.title
+    
+    if not content:
+        return JSONResponse(status_code=400, content={"error": "Content is required"})
+    
+    if output_type not in STUDIO_TYPES:
+        return JSONResponse(status_code=400, content={
+            "error": f"Invalid output_type. Valid types: {list(STUDIO_TYPES.keys())}"
+        })
+    
+    # Build prompt based on output type
+    if output_type == "mindmap":
+        prompt = build_mindmap_prompt(content, title)
+    elif output_type == "slides":
+        prompt = build_slides_prompt(content, title)
+    elif output_type == "quiz":
+        prompt = build_quiz_prompt(content)
+    elif output_type == "flashcards":
+        prompt = build_flashcard_prompt(content)
+    elif output_type == "audio_script":
+        prompt = build_audio_script_prompt(content, title)
+    elif output_type == "report":
+        prompt = build_report_prompt(content, title)
+    else:
+        return JSONResponse(status_code=400, content={"error": "Unknown output type"})
+    
+    # Call Gemini
+    if not GEMINI_AVAILABLE:
+        return JSONResponse(status_code=503, content={"error": "Gemini API not available"})
+    
+    try:
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        if not api_key:
+            return JSONResponse(status_code=503, content={"error": "GEMINI_API_KEY not set"})
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        raw_output = response.text
+        
+        # Parse response based on output type
+        if output_type == "mindmap":
+            result = parse_mindmap_response(raw_output)
+            return {
+                "type": "mindmap",
+                "format": "mermaid",
+                "content": result,
+                "title": title or "Mind Map"
+            }
+        elif output_type == "slides":
+            slides = parse_slides_response(raw_output)
+            html = render_slides_html(slides, title or "Presentation")
+            return {
+                "type": "slides",
+                "format": "json",
+                "slides": slides,
+                "html": html,
+                "title": title or "Presentation"
+            }
+        elif output_type == "quiz":
+            quiz = parse_quiz_response(raw_output)
+            return {
+                "type": "quiz",
+                "format": "json",
+                "questions": quiz,
+                "total_questions": len(quiz)
+            }
+        elif output_type == "flashcards":
+            cards = parse_flashcard_response(raw_output)
+            return {
+                "type": "flashcards",
+                "format": "json",
+                "cards": cards,
+                "total_cards": len(cards)
+            }
+        elif output_type == "audio_script":
+            script = parse_audio_script_response(raw_output)
+            word_count = len(script.split())
+            duration_mins = round(word_count / 150, 1)  # ~150 wpm speaking rate
+            return {
+                "type": "audio_script",
+                "format": "text",
+                "script": script,
+                "word_count": word_count,
+                "estimated_duration": f"{duration_mins} minutes",
+                "title": title or "Audio Overview"
+            }
+        elif output_type == "report":
+            report = parse_report_response(raw_output)
+            return {
+                "type": "report",
+                "format": "markdown",
+                "content": report,
+                "title": title or "Report"
+            }
+        
+    except Exception as exc:
+        print(f"Studio generation failed: {exc}")
+        return JSONResponse(status_code=500, content={
+            "error": "Generation failed",
+            "message": str(exc)
+        })
 
 
 @app.post("/analyze")
