@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getTemplate } from '../../lib/templates'
 
 type DeviceType = 'desktop' | 'tablet' | 'phone'

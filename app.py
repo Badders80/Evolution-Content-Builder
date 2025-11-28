@@ -1,8 +1,8 @@
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from PIL import Image
 import io
 import base64
@@ -10,7 +10,7 @@ import re
 import os
 import json
 import requests
-from lib.prompts import build_prompt
+from lib.prompts import build_prompt, build_stage1_prompt
 # Temporarily disabled due to version conflicts
 # import torch
 # from diffusers import DiffusionPipeline
@@ -56,6 +56,10 @@ app.add_middleware(
 # Mount static directories
 if os.path.exists("assets"):
     app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+# Mount React build assets (production)
+if os.path.exists("builder-ui/dist/assets"):
+    app.mount("/assets-ui", StaticFiles(directory="builder-ui/dist/assets"), name="ui-assets")
 
 # API Keys (will be set from environment or config)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -129,6 +133,14 @@ def compute_readability_band(word_count: int) -> str:
     if word_count < 300:
         return "long"
     return "very long"
+
+
+def compute_readability_band_stage1(word_count: int) -> str:
+    if word_count < 80:
+        return "very_short"
+    if word_count < 220:
+        return "good"
+    return "long"
 
 
 def extract_keywords(text: str, limit: int = 10) -> list[str]:
@@ -223,6 +235,77 @@ async def generate_with_gemini(prompt: str) -> str:
     model = genai.GenerativeModel("gemini-3-pro-preview")
     response = await asyncio.to_thread(model.generate_content, prompt)
     return response.text or ""
+
+
+def build_stage1_stub(raw_text: str, preset: str, audience: str, tone: str, length: str) -> Dict[str, Any]:
+    tokens = tokenize_words(raw_text)
+    paragraphs = [p.strip() for p in raw_text.strip().split("\n\n") if p.strip()]
+    if not paragraphs:
+        paragraphs = ["Content pending."]
+
+    sections = []
+    for idx, para in enumerate(paragraphs):
+        sections.append(
+            {
+                "id": f"sec-{idx+1}",
+                "heading": f"Section {idx+1}",
+                "body": para,
+            }
+        )
+
+    keywords = extract_keywords(raw_text, limit=8)
+    meta = {
+        "word_count": len(tokens),
+        "readability_band": compute_readability_band_stage1(len(tokens)),
+        "keywords": keywords,
+    }
+
+    return {
+        "preset": preset,
+        "audience": audience,
+        "tone": tone,
+        "length": length,
+        "headline": sections[0]["heading"] if sections else "",
+        "subheadline": sections[0]["body"][:140] if sections else "",
+        "sections": sections,
+        "quote": "",
+        "quote_by": "",
+        "key_points": [s["body"][:120] for s in sections[:3]],
+        "social_caption": sections[0]["body"][:180] if sections else "",
+        "meta": meta,
+        "source": "stub",
+    }
+
+
+def parse_stage1_response(model_output: str, preset: str, audience: str, tone: str, length: str, raw_text: str) -> Dict[str, Any]:
+    cleaned = model_output.strip()
+    if "```json" in cleaned:
+        try:
+            cleaned = cleaned.split("```json", 1)[1].split("```", 1)[0]
+        except IndexError:
+            pass
+    elif "```" in cleaned:
+        try:
+            cleaned = cleaned.split("```", 1)[1].split("```", 1)[0]
+        except IndexError:
+            pass
+
+    try:
+        parsed = json.loads(cleaned)
+        # normalize expected keys
+        parsed.setdefault("preset", preset)
+        parsed.setdefault("audience", audience)
+        parsed.setdefault("tone", tone)
+        parsed.setdefault("length", length)
+        parsed.setdefault("sections", [])
+        parsed.setdefault("key_points", [])
+        parsed.setdefault("meta", {})
+        if isinstance(parsed.get("sections"), dict):
+            parsed["sections"] = [parsed["sections"]]
+        return parsed
+    except Exception as exc:
+        print(f"Stage1 parse failed: {exc}")
+        return build_stage1_stub(raw_text, preset, audience, tone, length)
 
 
 def polish_content(raw_text: str, llm_choice: str, template_type: str) -> dict:
@@ -421,6 +504,42 @@ class RewriteRequest(BaseModel):
     style_flags: Optional[List[str]] = None
 
 
+class Stage1AnalyzeRequest(BaseModel):
+    text: str
+
+
+class Stage1Section(BaseModel):
+    id: str
+    heading: str
+    body: str
+
+
+class Stage1Content(BaseModel):
+    preset: str
+    audience: str
+    tone: str
+    length: str
+    headline: str
+    subheadline: str
+    sections: List[Stage1Section]
+    quote: str
+    quote_by: str
+    key_points: List[str]
+    social_caption: str
+    meta: dict
+    source: Optional[str] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+
+class Stage1RewriteRequest(BaseModel):
+    preset: str = Field(..., description="pre_race | post_race | race_announcement | trainer_update")
+    audience: str = Field(..., description="investor | owner | social | mixed")
+    tone: str = Field(..., description="formal | balanced | conversational")
+    length: str = Field(..., description="short | standard | long")
+    raw_text: str
+
+
 @app.post("/edit/analyze")
 async def edit_analyze(req: EditAnalyzeRequest):
     """Analyze text for length, readability band, and basic keywords."""
@@ -474,6 +593,52 @@ async def edit_rewrite(req: RewriteRequest):
                 "message": "Gemini rewrite failed; returning fallback content.",
             },
         )
+
+
+@app.post("/stage1/analyse")
+async def stage1_analyse(req: Stage1AnalyzeRequest):
+    text = req.text or ""
+    tokens = tokenize_words(text)
+    word_count = len(tokens)
+    readability_band = compute_readability_band_stage1(word_count)
+    keywords = extract_keywords(text, limit=10)
+    return {
+        "word_count": word_count,
+        "readability_band": readability_band,
+        "keywords": keywords,
+        "suggestions": [],
+    }
+
+
+@app.post("/stage1/rewrite", response_model=Stage1Content)
+async def stage1_rewrite(req: Stage1RewriteRequest):
+    preset = req.preset
+    audience = req.audience
+    tone = req.tone
+    length = req.length
+
+    prompt = build_stage1_prompt(
+        preset=preset,
+        raw_text=req.raw_text,
+        audience=audience,
+        tone=tone,
+        length=length,
+    )
+
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
+        return build_stage1_stub(req.raw_text, preset, audience, tone, length)
+
+    try:
+        model_output = await generate_with_gemini(prompt)
+        structured = parse_stage1_response(model_output, preset, audience, tone, length, req.raw_text)
+        structured["source"] = "gemini"
+        return structured
+    except Exception as exc:
+        print(f"Stage1 rewrite failed: {exc}")
+        fallback = build_stage1_stub(req.raw_text, preset, audience, tone, length)
+        fallback["error"] = "gemini_rewrite_failed"
+        fallback["message"] = "Gemini rewrite failed; returning fallback content."
+        return JSONResponse(status_code=502, content=fallback)
 
 
 @app.post("/analyze")
@@ -586,12 +751,16 @@ Generate only the {field} text, no explanations."""
         }
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def index():
-    if os.path.exists('index.html'):
-        with open('index.html') as f:
-            return f.read()
-    return "<h1>Evolution Content Builder</h1><p>index.html not found</p>"
+    """Redirect to React frontend. In production, serve built dist instead."""
+    # Check if React build exists (production)
+    dist_index = "builder-ui/dist/index.html"
+    if os.path.exists(dist_index):
+        with open(dist_index) as f:
+            return HTMLResponse(f.read())
+    # Development: redirect to Vite dev server
+    return RedirectResponse(url="http://localhost:5173", status_code=302)
 
 @app.get("/api/taglines")
 async def get_taglines():

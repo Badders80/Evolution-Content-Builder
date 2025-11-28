@@ -1,0 +1,10 @@
+# Core dependencies for Evolution Content Builder
+# Use this for text-only AI features (no local image generation)
+
+fastapi==0.109.0
+uvicorn[standard]
+python-multipart==0.0.6
+pillow
+openai
+google-generativeai
+requests==2.31.0

@@ -1,11 +1,20 @@
+# Evolution Content Builder - Full dependencies
+# For minimal install (no local image gen): pip install -r requirements-minimal.txt
+
+# Core
 fastapi==0.109.0
 uvicorn[standard]
 python-multipart==0.0.6
 pillow
-torch==2.1.0
-diffusers==0.25.0
-transformers==4.36.0
-accelerate==0.25.0
+requests==2.31.0
+
+# LLM APIs
 openai
 google-generativeai
-requests==2.31.0
+
+# Local Image Generation (optional - requires CUDA GPU, ~5GB)
+# Uncomment if you want local Stable Diffusion support
+# torch==2.1.0
+# diffusers==0.25.0
+# transformers==4.36.0
+# accelerate==0.25.0
