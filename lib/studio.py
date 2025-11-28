@@ -402,6 +402,94 @@ def parse_report_response(response: str) -> str:
 
 
 # ============================================================
+# INFOGRAPHIC GENERATION
+# ============================================================
+
+INFOGRAPHIC_PROMPT = """
+Analyze the content and extract key statistics, metrics, and data points.
+Structure this data for visual infographic charts.
+
+Rules:
+- Extract 3-5 key metrics or data points
+- Create appropriate chart configurations (bar, pie, line, or stat cards)
+- Use clear, concise labels
+- Include a headline and summary
+- Numbers should be realistic and derived from the content
+- If no numbers exist, create meaningful categorical comparisons
+
+Content:
+\"\"\"
+{content}
+\"\"\"
+
+Return valid JSON with this structure:
+{{
+  "title": "Infographic headline",
+  "summary": "One sentence summary",
+  "charts": [
+    {{
+      "type": "bar",
+      "title": "Chart title",
+      "data": {{
+        "labels": ["Label 1", "Label 2", "Label 3"],
+        "values": [75, 50, 25],
+        "colors": ["#3B82F6", "#10B981", "#F59E0B"]
+      }}
+    }},
+    {{
+      "type": "pie",
+      "title": "Distribution",
+      "data": {{
+        "labels": ["Category A", "Category B"],
+        "values": [60, 40],
+        "colors": ["#6366F1", "#EC4899"]
+      }}
+    }},
+    {{
+      "type": "stat",
+      "title": "Key Metric",
+      "value": "85%",
+      "subtitle": "Description of metric",
+      "trend": "up"
+    }}
+  ],
+  "key_points": ["Point 1", "Point 2", "Point 3"]
+}}
+
+Chart types available: "bar", "pie", "line", "stat" (single metric card)
+Return ONLY valid JSON.
+"""
+
+def build_infographic_prompt(content: str, title: Optional[str] = None) -> str:
+    """Build prompt for infographic generation."""
+    prompt = INFOGRAPHIC_PROMPT.format(content=content.strip())
+    if title:
+        prompt += f"\n\nTopic: '{title}'"
+    return prompt
+
+
+def parse_infographic_response(response: str) -> Dict[str, Any]:
+    """Parse infographic JSON response."""
+    response = re.sub(r'^```(?:json)?\n?', '', response.strip())
+    response = re.sub(r'\n?```$', '', response)
+    
+    try:
+        data = json.loads(response)
+        if isinstance(data, dict) and "charts" in data:
+            return data
+    except json.JSONDecodeError:
+        pass
+    
+    # Fallback
+    return {
+        "title": "Infographic",
+        "summary": "Could not generate infographic data",
+        "charts": [],
+        "key_points": []
+    }
+
+
+# ============================================================
 # STUDIO OUTPUT TYPES
 # ============================================================
 
@@ -447,6 +535,13 @@ STUDIO_TYPES = {
         "icon": "📄",
         "build_prompt": build_report_prompt,
         "parse_response": parse_report_response,
+    },
+    "infographic": {
+        "name": "Infographic",
+        "description": "Visual charts and statistics",
+        "icon": "📈",
+        "build_prompt": build_infographic_prompt,
+        "parse_response": parse_infographic_response,
     },
 }
 

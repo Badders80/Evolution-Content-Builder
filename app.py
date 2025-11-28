@@ -37,6 +37,7 @@ from lib.studio import (
     build_flashcard_prompt, parse_flashcard_response,
     build_audio_script_prompt, parse_audio_script_response,
     build_report_prompt, parse_report_response,
+    build_infographic_prompt, parse_infographic_response,
 )
 # Temporarily disabled due to version conflicts
 # import torch
@@ -712,6 +713,8 @@ async def studio_generate(req: StudioRequest):
         prompt = build_audio_script_prompt(content, title)
     elif output_type == "report":
         prompt = build_report_prompt(content, title)
+    elif output_type == "infographic":
+        prompt = build_infographic_prompt(content, title)
     else:
         return JSONResponse(status_code=400, content={"error": "Unknown output type"})
     
@@ -783,6 +786,14 @@ async def studio_generate(req: StudioRequest):
                 "format": "markdown",
                 "content": report,
                 "title": title or "Report"
+            }
+        elif output_type == "infographic":
+            infographic = parse_infographic_response(raw_output)
+            return {
+                "type": "infographic",
+                "format": "json",
+                "data": infographic,
+                "title": infographic.get("title", title or "Infographic")
             }
         
     except Exception as exc:

@@ -16,6 +16,7 @@ import QuizViewer from './QuizViewer'
 import FlashcardsViewer from './FlashcardsViewer'
 import AudioScriptViewer from './AudioScriptViewer'
 import ReportViewer from './ReportViewer'
+import InfographicsViewer from './InfographicsViewer'
 
 interface StudioPanelProps {
   content: string
@@ -25,6 +26,7 @@ interface StudioPanelProps {
 const STUDIO_OPTIONS: { type: StudioOutputType; name: string; icon: string; description: string }[] = [
   { type: 'mindmap', name: 'Mind Map', icon: '🗺️', description: 'Visual concept map' },
   { type: 'slides', name: 'Slide Deck', icon: '📊', description: 'Presentation slides' },
+  { type: 'infographic', name: 'Infographic', icon: '📈', description: 'Charts & stats' },
   { type: 'quiz', name: 'Quiz', icon: '❓', description: 'Knowledge check' },
   { type: 'flashcards', name: 'Flashcards', icon: '🃏', description: 'Study cards' },
   { type: 'audio_script', name: 'Audio Overview', icon: '🎙️', description: 'Podcast script' },
@@ -74,6 +76,8 @@ export default function StudioPanel({ content, title }: StudioPanelProps) {
         return <AudioScriptViewer data={result} />
       case 'report':
         return <ReportViewer data={result} />
+      case 'infographic':
+        return <InfographicsViewer data={result} />
       default:
         return <pre className="text-sm">{JSON.stringify(result, null, 2)}</pre>
     }

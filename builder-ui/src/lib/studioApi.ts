@@ -17,6 +17,7 @@ export type StudioOutputType =
   | 'flashcards'
   | 'audio_script'
   | 'report'
+  | 'infographic'
 
 export interface StudioType {
   name: string
@@ -94,6 +95,33 @@ export interface ReportResponse {
   title: string
 }
 
+export interface ChartData {
+  type: 'bar' | 'pie' | 'line' | 'stat'
+  title: string
+  data?: {
+    labels: string[]
+    values: number[]
+    colors?: string[]
+  }
+  value?: string
+  subtitle?: string
+  trend?: 'up' | 'down' | 'neutral'
+}
+
+export interface InfographicData {
+  title: string
+  summary: string
+  charts: ChartData[]
+  key_points: string[]
+}
+
+export interface InfographicResponse {
+  type: 'infographic'
+  format: 'json'
+  data: InfographicData
+  title: string
+}
+
 export type StudioResponse = 
   | MindMapResponse 
   | SlidesResponse 
@@ -101,6 +129,7 @@ export type StudioResponse =
   | FlashcardsResponse 
   | AudioScriptResponse 
   | ReportResponse
+  | InfographicResponse
 
 export async function getStudioTypes(): Promise<Record<string, StudioType>> {
   const response = await fetch('/studio/types')
