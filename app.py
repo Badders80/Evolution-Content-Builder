@@ -6,9 +6,11 @@ from pydantic import BaseModel
 from PIL import Image
 import io
 import base64
+import re
 import os
 import json
 import requests
+from lib.prompts import build_prompt
 # Temporarily disabled due to version conflicts
 # import torch
 # from diffusers import DiffusionPipeline
@@ -28,7 +30,7 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Google Generative AI not installed. Run: pip install google-generativeai")
 import asyncio
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 app = FastAPI()
 
@@ -57,7 +59,7 @@ if os.path.exists("assets"):
 
 # API Keys (will be set from environment or config)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBRu1vYkzacqhm2qqqCdpdXk1z0xXYftu4")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 COMFY_URL = os.getenv("COMFY_URL", "http://127.0.0.1:8188")
 
 # Configure APIs if keys are available
@@ -105,6 +107,123 @@ TEMPLATES = {
         "display_name": "Post-Race Report"
     }
 }
+
+STOPWORDS = {
+    "the", "and", "or", "a", "an", "to", "of", "in", "for", "on", "with", "at",
+    "by", "from", "up", "about", "into", "over", "after", "is", "it", "as", "be",
+    "are", "was", "were", "this", "that", "those", "these", "can", "will", "just",
+    "than", "then", "but", "so", "if", "out", "not", "no", "we", "you", "our",
+    "their", "they", "them", "he", "she", "his", "her", "its", "i", "me", "my"
+}
+
+
+def tokenize_words(text: str) -> list[str]:
+    return re.findall(r"[A-Za-z']+", text.lower())
+
+
+def compute_readability_band(word_count: int) -> str:
+    if word_count < 60:
+        return "very short"
+    if word_count < 160:
+        return "good length"
+    if word_count < 300:
+        return "long"
+    return "very long"
+
+
+def extract_keywords(text: str, limit: int = 10) -> list[str]:
+    words = tokenize_words(text)
+    freq: dict[str, int] = {}
+    for word in words:
+        if len(word) <= 3 or word in STOPWORDS:
+            continue
+        freq[word] = freq.get(word, 0) + 1
+    sorted_words = sorted(freq.items(), key=lambda item: (-item[1], -len(item[0]), item[0]))
+    return [w for w, _ in sorted_words[:limit]]
+
+
+def normalize_structured_content(payload: Dict[str, Any], preset: str) -> Dict[str, Any]:
+    base = {
+        "preset": preset,
+        "headline": "",
+        "subheadline": "",
+        "body": [],
+        "key_points": [],
+        "quote": "",
+        "quote_by": "",
+        "social_caption": "",
+        "cta": "",
+    }
+
+    body = payload.get("body", [])
+    if isinstance(body, str):
+        body = [body]
+    base["body"] = [p.strip() for p in body if p and str(p).strip()]
+
+    key_points = payload.get("key_points", [])
+    if isinstance(key_points, str):
+        key_points = [key_points]
+    base["key_points"] = [kp.strip() for kp in key_points if kp and str(kp).strip()]
+
+    for key in ["headline", "subheadline", "quote", "quote_by", "social_caption", "cta"]:
+        value = payload.get(key, "")
+        base[key] = value.strip() if isinstance(value, str) else str(value) if value is not None else ""
+
+    return base
+
+
+def stub_structured_content(raw_text: str, preset: str) -> Dict[str, Any]:
+    cleaned = raw_text.strip()
+    paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
+    if not paragraphs and cleaned:
+        paragraphs = [cleaned]
+    elif not paragraphs:
+        paragraphs = ["Content pending."]
+
+    headline = f"{preset.replace('-', ' ').title()} update"
+    subheadline_seed = paragraphs[0] if paragraphs else ""
+    subheadline = subheadline_seed[:120] + ("..." if len(subheadline_seed) > 120 else "")
+
+    content = {
+        "preset": preset,
+        "headline": headline,
+        "subheadline": subheadline,
+        "body": paragraphs[:3],
+        "key_points": paragraphs[:3],
+        "quote": "",
+        "quote_by": "",
+        "social_caption": subheadline_seed[:140],
+        "cta": "Follow for the full update soon.",
+    }
+    return normalize_structured_content(content, preset)
+
+
+def parse_structured_response(model_output: str, preset: str, raw_text: str) -> Dict[str, Any]:
+    cleaned = model_output.strip()
+    if "```json" in cleaned:
+        try:
+            cleaned = cleaned.split("```json", 1)[1].split("```", 1)[0]
+        except IndexError:
+            pass
+    elif "```" in cleaned:
+        try:
+            cleaned = cleaned.split("```", 1)[1].split("```", 1)[0]
+        except IndexError:
+            pass
+
+    try:
+        parsed = json.loads(cleaned)
+        return normalize_structured_content(parsed, preset)
+    except Exception as exc:
+        print(f"Structured parse failed: {exc}")
+        return stub_structured_content(raw_text, preset)
+
+
+async def generate_with_gemini(prompt: str) -> str:
+    model = genai.GenerativeModel("gemini-3-pro-preview")
+    response = await asyncio.to_thread(model.generate_content, prompt)
+    return response.text or ""
+
 
 def polish_content(raw_text: str, llm_choice: str, template_type: str) -> dict:
     """
@@ -289,6 +408,74 @@ class SuggestRequest(BaseModel):
     target_words: int
 
 
+class EditAnalyzeRequest(BaseModel):
+    text: str
+
+
+class RewriteRequest(BaseModel):
+    raw_text: str
+    preset: str
+    tone: Optional[float] = 50
+    length: Optional[str] = "standard"
+    audience: Optional[str] = "owner"
+    style_flags: Optional[List[str]] = None
+
+
+@app.post("/edit/analyze")
+async def edit_analyze(req: EditAnalyzeRequest):
+    """Analyze text for length, readability band, and basic keywords."""
+    text = req.text or ""
+    tokens = tokenize_words(text)
+    word_count = len(tokens)
+    readability_band = compute_readability_band(word_count)
+    keywords = extract_keywords(text, limit=10)
+
+    return {
+        "word_count": word_count,
+        "readability_band": readability_band,
+        "keywords": keywords,
+    }
+
+
+@app.post("/edit/rewrite")
+async def edit_rewrite(req: RewriteRequest):
+    """Rewrite raw text into structured content using Gemini (or a deterministic stub)."""
+    preset = (req.preset or "trainer-update").strip().lower()
+    prompt = build_prompt(
+        preset,
+        req.raw_text,
+        tone=req.tone,
+        length=req.length,
+        audience=req.audience,
+        style_flags=req.style_flags,
+    )
+
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
+        fallback = stub_structured_content(req.raw_text, preset)
+        return {
+            **fallback,
+            "source": "stub",
+            "message": "Gemini not configured; returning deterministic stub.",
+        }
+
+    try:
+        model_output = await generate_with_gemini(prompt)
+        structured = parse_structured_response(model_output, preset, req.raw_text)
+        return {**structured, "source": "gemini"}
+    except Exception as exc:
+        print(f"Gemini rewrite failed: {exc}")
+        fallback = stub_structured_content(req.raw_text, preset)
+        return JSONResponse(
+            status_code=502,
+            content={
+                **fallback,
+                "source": "stub",
+                "error": "gemini_rewrite_failed",
+                "message": "Gemini rewrite failed; returning fallback content.",
+            },
+        )
+
+
 @app.post("/analyze")
 async def analyze(req: AnalyzeRequest):
     """Analyze text content and return insights."""
@@ -422,6 +609,7 @@ async def get_assets():
 @app.post("/api/generate")
 async def generate(
     inputs: str = Form(""),
+    structured: str = Form(None),
     assets: str = Form(""),
     tagline: str = Form(""),
     suggestions: str = Form(""),
@@ -431,6 +619,14 @@ async def generate(
 ):
     # Process inputs
     content = inputs
+    structured_payload = None
+    if structured:
+        try:
+            structured_payload = json.loads(structured)
+        except json.JSONDecodeError:
+            structured_payload = None
+    if structured_payload is not None and not isinstance(structured_payload, dict):
+        structured_payload = None
     
     # Process selected assets
     selected_assets = [a.strip() for a in assets.split(',') if a.strip()]
@@ -455,8 +651,12 @@ async def generate(
                     'type': 'jockey' if 'jockey' in file.filename.lower() else 'horse' if 'horse' in file.filename.lower() else 'general'
                 })
     
-    # Use selected template or auto-classify
-    if template and template in TEMPLATES:
+    preset_from_payload = structured_payload.get("preset") if structured_payload else None
+
+    # Use selected template, provided preset, or auto-classify
+    if preset_from_payload and preset_from_payload in TEMPLATES:
+        template_key = preset_from_payload
+    elif template and template in TEMPLATES:
         template_key = template
     else:
         # Auto-classify template based on keywords
@@ -472,23 +672,35 @@ async def generate(
     
     template = TEMPLATES[template_key]
     
-    # LLM Content Polishing
-    polished_result = polish_content(content, llm, template_key)
-    
-    # Use polished content if available
-    if polished_result['polished'] and polished_result['body']:
-        content = polished_result['body']
-        llm_headline = polished_result['headline']
-        llm_subheadline = polished_result['subheadline']
-        llm_quote = polished_result.get('quote')
-        llm_quote_by = polished_result.get('quote_by')
-        print(f"Content polished with {llm}")
+    llm_headline = ""
+    llm_subheadline = ""
+    llm_quote = None
+    llm_quote_by = None
+
+    if structured_payload:
+        body_from_payload = structured_payload.get("body", [])
+        if isinstance(body_from_payload, str):
+            body_from_payload = [body_from_payload]
+        body_text = "\n\n".join(body_from_payload) if body_from_payload else content
+        content = body_text
+        llm_headline = structured_payload.get("headline", "") or ""
+        llm_subheadline = structured_payload.get("subheadline", "") or ""
+        llm_quote = structured_payload.get("quote") or None
+        llm_quote_by = structured_payload.get("quote_by") or None
     else:
-        llm_headline = ""
-        llm_subheadline = ""
-        llm_quote = None
-        llm_quote_by = None
-        print("Using raw content (no LLM polish)")
+        # LLM Content Polishing
+        polished_result = polish_content(content, llm, template_key)
+        
+        # Use polished content if available
+        if polished_result['polished'] and polished_result['body']:
+            content = polished_result['body']
+            llm_headline = polished_result['headline']
+            llm_subheadline = polished_result['subheadline']
+            llm_quote = polished_result.get('quote')
+            llm_quote_by = polished_result.get('quote_by')
+            print(f"Content polished with {llm}")
+        else:
+            print("Using raw content (no LLM polish)")
     
     # AI image generation with diffusers
     ai_generated_image = None

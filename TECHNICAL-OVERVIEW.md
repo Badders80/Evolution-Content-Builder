@@ -611,8 +611,8 @@ npm run dev
 **Environment Variables:**
 ```bash
 # .env file
-GEMINI_API_KEY=AIzaSyBRu1vYkzacqhm2qqqCdpdXk1z0xXYftu4
-OPENAI_API_KEY=sk-...  # Optional
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here  # Optional
 COMFY_URL=http://127.0.0.1:8188  # Future
 ```
 
