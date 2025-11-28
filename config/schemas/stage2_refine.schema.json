@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "stage2_refine.schema.json",
+  "title": "Stage 2 Refinement Schema",
+  "description": "Schema for refined content after Stage 2 processing",
+  
+  "type": "object",
+  "required": ["preset", "headline", "sections", "meta", "refinements"],
+  
+  "allOf": [
+    { "$ref": "stage1_output.schema.json" }
+  ],
+  
+  "properties": {
+    "refinements": {
+      "type": "object",
+      "description": "Record of refinements applied in Stage 2",
+      "properties": {
+        "tone_adjusted": {
+          "type": "boolean",
+          "description": "Whether tone was modified"
+        },
+        "length_adjusted": {
+          "type": "boolean", 
+          "description": "Whether content was shortened/expanded"
+        },
+        "brand_words_replaced": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "original": { "type": "string" },
+              "replacement": { "type": "string" }
+            }
+          }
+        },
+        "sections_reordered": {
+          "type": "boolean"
+        },
+        "quote_extracted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Refinement iteration number"
+    },
+    "approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether content has been approved for Stage 3"
+    }
+  }
+}

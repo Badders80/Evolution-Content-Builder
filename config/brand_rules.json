@@ -1,0 +1,90 @@
+{
+  "brand_name": "Evolution Stables",
+  "tagline": "The Future of Ownership Has Arrived",
+  
+  "voice": {
+    "style": "understated_authority",
+    "principles": [
+      "clear",
+      "direct",
+      "confident",
+      "human",
+      "progressive"
+    ],
+    "description": "Speak from established leadership position. Inform without arrogance, educate without lecturing. Trusted insider tone."
+  },
+  
+  "tone_levels": {
+    "formal": {
+      "description": "Professional, reserved, investor-focused",
+      "use_cases": ["investor_reports", "official_announcements", "legal_updates"]
+    },
+    "balanced": {
+      "description": "Approachable authority, default for most content",
+      "use_cases": ["race_updates", "trainer_reports", "general_communications"]
+    },
+    "conversational": {
+      "description": "Warmer, more personal, social-friendly",
+      "use_cases": ["social_media", "community_updates", "celebration_posts"]
+    }
+  },
+  
+  "writing_rules": {
+    "banned_words": [
+      "revolutionary",
+      "disruptive",
+      "game-changing",
+      "cutting-edge",
+      "synergy",
+      "leverage",
+      "paradigm",
+      "unprecedented",
+      "amazing",
+      "incredible",
+      "unbelievable",
+      "insane",
+      "crazy",
+      "mind-blowing"
+    ],
+    "preferred_alternatives": {
+      "revolutionary": "transformative",
+      "disruptive": "innovative",
+      "game-changing": "significant",
+      "cutting-edge": "advanced",
+      "leverage": "use",
+      "synergy": "collaboration",
+      "amazing": "impressive",
+      "incredible": "remarkable"
+    },
+    "avoid_patterns": [
+      "exclamation marks in headlines",
+      "all caps for emphasis",
+      "multiple adjectives stacked",
+      "vague superlatives without evidence",
+      "marketing buzzwords"
+    ],
+    "prefer_patterns": [
+      "declarative statements",
+      "evidence-backed claims",
+      "specific numbers and data",
+      "measured optimism",
+      "insider expertise"
+    ]
+  },
+  
+  "brand_bridges": [
+    "At Evolution, access should be as equal as the track—same rules, same opportunity.",
+    "Technology moves fast. We move with purpose—bridging regulation and real-world ownership.",
+    "The sport's legacy is centuries old. Its next chapter is written in code.",
+    "From paddocks to protocols—ownership, evolved.",
+    "Because real ownership means everyone gets a way in."
+  ],
+  
+  "content_guidelines": {
+    "headline_max_words": 8,
+    "subheadline_max_words": 20,
+    "paragraph_max_sentences": 4,
+    "quote_attribution_required": true,
+    "data_citation_preferred": true
+  }
+}

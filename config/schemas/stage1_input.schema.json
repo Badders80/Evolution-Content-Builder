@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "stage1_input.schema.json",
+  "title": "Stage 1 Input Schema",
+  "description": "Schema for raw input entering Stage 1 of the Evolution Content Builder pipeline",
+  
+  "type": "object",
+  "required": ["raw_text", "preset"],
+  
+  "properties": {
+    "raw_text": {
+      "type": "string",
+      "minLength": 10,
+      "description": "The raw text content to be processed"
+    },
+    "preset": {
+      "type": "string",
+      "enum": ["pre_race", "post_race", "trainer_update", "race_announcement"],
+      "description": "The content template type"
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["investor", "owner", "social", "mixed"],
+      "default": "investor",
+      "description": "Target audience for the content"
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["formal", "balanced", "conversational"],
+      "default": "balanced",
+      "description": "Desired tone level"
+    },
+    "length": {
+      "type": "string",
+      "enum": ["short", "standard", "long"],
+      "default": "standard",
+      "description": "Target content length"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["image", "document", "url"]
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Optional file attachments"
+    }
+  }
+}

@@ -1,3 +1,21 @@
+"""
+Evolution Content Builder — FastAPI Backend
+
+This module serves as the API layer for the Evolution Content Builder.
+It is responsible ONLY for:
+- API endpoints for content analysis and generation
+- LLM orchestration (Gemini, OpenAI)
+- Static asset serving
+- HTML/PDF generation from structured content
+
+It MUST NOT:
+- Define brand rules (those live in /config)
+- Make UI decisions (those belong in the React frontend)
+- Store state between requests (stateless API design)
+
+All brand rules, templates, and schemas are loaded from /config via lib/prompts.py.
+See BUILD_PHILOSOPHY.md for complete architectural guidance.
+"""
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse

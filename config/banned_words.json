@@ -1,0 +1,92 @@
+{
+  "description": "Words and phrases that should never appear in Evolution Stables content",
+  
+  "banned_words": [
+    "revolutionary",
+    "disruptive", 
+    "game-changing",
+    "game-changer",
+    "cutting-edge",
+    "cutting edge",
+    "synergy",
+    "synergies",
+    "leverage",
+    "leveraging",
+    "paradigm",
+    "paradigm shift",
+    "unprecedented",
+    "unparalleled",
+    "world-class",
+    "best-in-class",
+    "next-level",
+    "next level"
+  ],
+  
+  "hype_words": [
+    "amazing",
+    "incredible", 
+    "unbelievable",
+    "insane",
+    "crazy",
+    "mind-blowing",
+    "epic",
+    "legendary",
+    "iconic",
+    "game-changing"
+  ],
+  
+  "vague_superlatives": [
+    "very unique",
+    "extremely special",
+    "absolutely fantastic",
+    "truly remarkable",
+    "incredibly exciting"
+  ],
+  
+  "marketing_buzzwords": [
+    "optimize",
+    "monetize",
+    "incentivize",
+    "strategize",
+    "holistic",
+    "robust",
+    "scalable",
+    "seamless",
+    "end-to-end",
+    "best practices",
+    "thought leader",
+    "move the needle",
+    "low-hanging fruit",
+    "circle back",
+    "deep dive"
+  ],
+  
+  "banned_patterns": [
+    {
+      "pattern": "!{2,}",
+      "description": "Multiple exclamation marks",
+      "severity": "high"
+    },
+    {
+      "pattern": "[A-Z]{4,}",
+      "description": "All caps words (except acronyms)",
+      "severity": "medium"
+    },
+    {
+      "pattern": "🚀|🔥|💯|🙌",
+      "description": "Hype emojis in professional content",
+      "severity": "low"
+    }
+  ],
+  
+  "exceptions": {
+    "allowed_in_social": [
+      "exciting",
+      "thrilling",
+      "incredible"
+    ],
+    "allowed_in_quotes": [
+      "Any word is acceptable when directly quoting a person"
+    ]
+  }
+}

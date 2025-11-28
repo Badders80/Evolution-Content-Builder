@@ -1,3 +1,18 @@
+"""
+Evolution Content Builder — Prompt Generation Module
+
+This module is responsible ONLY for:
+- Building AI prompts from config-driven rules
+- Enforcing brand voice through prompt conditioning
+- Ensuring schema compliance in AI outputs
+
+It MUST NOT:
+- Define brand rules (those live in /config)
+- Handle rendering or layout
+- Make decisions about content structure
+
+All brand rules, templates, and schemas are loaded from /config.
+"""
 from __future__ import annotations
 
 import json
@@ -5,7 +20,21 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional
 
+# Config paths - single source of truth
+CONFIG_DIR = Path("config")
 PROFILE_PATH = Path("lib/builder_profile.md")
+
+# Load config files at module init
+def _load_config(filename: str) -> Dict[str, Any]:
+    """Load a JSON config file from /config directory."""
+    path = CONFIG_DIR / filename
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+BRAND_RULES = _load_config("brand_rules.json")
+TEMPLATES = _load_config("templates.json")
+BANNED_WORDS = _load_config("banned_words.json")
 
 # Canonical output contract used by UI + renderer
 OUTPUT_TEMPLATE: Dict[str, Any] = {
@@ -45,13 +74,37 @@ def _load_builder_profile() -> str:
     """Load the builder profile text for prompt conditioning."""
     if PROFILE_PATH.exists():
         return PROFILE_PATH.read_text(encoding="utf-8")
-    # Short fallback if the profile file is missing
-    return dedent(
-        """
-        Evolution Stables voice: Understated Authority, British English, calm and factual.
-        No hype terms; never invent race results, odds, or quotes. Use 4MAT: Why, What, How, What If.
-        """
-    ).strip()
+    # Fallback using config if profile file is missing
+    voice = BRAND_RULES.get("voice", {})
+    principles = ", ".join(voice.get("principles", ["clear", "direct", "confident"]))
+    return f"""
+Evolution Stables voice: {voice.get('style', 'Understated Authority')}.
+Principles: {principles}.
+{voice.get('description', 'Speak from established leadership position.')}
+No hype terms; never invent race results, odds, or quotes. Use 4MAT: Why, What, How, What If.
+""".strip()
+
+
+def _get_banned_words_text() -> str:
+    """Get banned words list as text for prompts."""
+    words = BANNED_WORDS.get("banned_words", []) + BANNED_WORDS.get("hype_words", [])
+    if words:
+        return "Banned words (never use): " + ", ".join(words[:15])
+    return ""
+
+
+def _get_brand_voice_rules() -> str:
+    """Get brand voice rules from config."""
+    rules = BRAND_RULES.get("writing_rules", {})
+    avoid = rules.get("avoid_patterns", [])
+    prefer = rules.get("prefer_patterns", [])
+    
+    text = []
+    if avoid:
+        text.append("Avoid: " + "; ".join(avoid[:5]))
+    if prefer:
+        text.append("Prefer: " + "; ".join(prefer[:5]))
+    return "\n".join(text)
 
 
 def _tone_descriptor(tone: Optional[float]) -> str:
@@ -100,6 +153,9 @@ def build_prompt(
     length_desc = _length_guidance(length)
     flags_desc = _format_style_flags(style_flags)
 
+    banned_words = _get_banned_words_text()
+    brand_voice = _get_brand_voice_rules()
+    
     prompt = f"""
 You are the Evolution Content Builder.
 Preset: {preset}
@@ -111,9 +167,13 @@ Style flags: {flags_desc}
 Builder Profile (condensed):
 {profile}
 
+Brand Voice Rules:
+{brand_voice}
+{banned_words}
+
 Rewrite the provided raw text into structured content that matches the preset.
 - Use the 4MAT rhythm (Why, What, How, What If).
-- Honour Evolution Stables’ brand voice: Understated Authority, British English, calm, no hype.
+- Honour Evolution Stables' brand voice: Understated Authority, British English, calm, no hype.
 - Never invent race results, odds, or quotes; only use what is supplied.
 - Keep sentences economical; every line should earn its place.
 
@@ -136,6 +196,9 @@ def build_stage1_prompt(
     length: str,
 ) -> str:
     profile = _load_builder_profile()
+    banned_words = _get_banned_words_text()
+    brand_voice = _get_brand_voice_rules()
+    
     prompt = f"""
 You are the Evolution Content Engine for Evolution Stables.
 Transform the raw notes into structured Stage1Content JSON.
@@ -149,6 +212,9 @@ Brand rules:
 - Understated Authority, British English, clear and direct.
 - No hype terms. Do not invent race results, odds, or quotes.
 - If information is missing, call it out briefly rather than hallucinating.
+
+{brand_voice}
+{banned_words}
 
 Builder Profile (condensed):
 {profile}

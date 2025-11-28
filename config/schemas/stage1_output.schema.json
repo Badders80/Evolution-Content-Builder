@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "stage1_output.schema.json",
+  "title": "Stage 1 Output Schema",
+  "description": "Schema for structured content output from Stage 1",
+  
+  "type": "object",
+  "required": ["preset", "headline", "sections", "meta"],
+  
+  "properties": {
+    "preset": {
+      "type": "string",
+      "enum": ["pre_race", "post_race", "trainer_update", "race_announcement"]
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["investor", "owner", "social", "mixed"]
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["formal", "balanced", "conversational"]
+    },
+    "length": {
+      "type": "string",
+      "enum": ["short", "standard", "long"]
+    },
+    "headline": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Primary headline, 4-8 words"
+    },
+    "subheadline": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Supporting subheadline, 12-20 words"
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "heading", "body"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique section identifier"
+          },
+          "heading": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "quote": {
+      "type": ["string", "null"],
+      "description": "Extracted quote if present"
+    },
+    "quote_by": {
+      "type": ["string", "null"],
+      "description": "Quote attribution"
+    },
+    "key_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 5,
+      "description": "Key takeaways as bullet points"
+    },
+    "social_caption": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Ready-to-use social media caption"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "word_count": {
+          "type": "integer"
+        },
+        "readability_band": {
+          "type": "string",
+          "enum": ["very_short", "good", "long"]
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "brand_compliance": {
+          "type": "object",
+          "properties": {
+            "passed": {
+              "type": "boolean"
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": ["gemini", "openai", "stub"],
+      "description": "Which AI/method generated this content"
+    }
+  }
+}

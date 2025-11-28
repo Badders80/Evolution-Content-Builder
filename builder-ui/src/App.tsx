@@ -1,3 +1,21 @@
+/**
+ * Evolution Content Builder — Main Application
+ * 
+ * This is the entry point for the React frontend.
+ * It orchestrates the 3-stage content pipeline:
+ * 
+ * Stage 1: Text Creation — Convert raw input to structured JSON
+ * Stage 2: Refinement — Polish content, enforce brand tone
+ * Stage 3: Output — Render to HTML/PDF, apply layouts
+ * 
+ * Architecture principles:
+ * - All brand rules loaded from /config (see lib/config.ts)
+ * - Each stage is isolated; they cannot bleed into each other
+ * - AI outputs are validated against schemas
+ * - The system is deterministic, not a chatbot
+ * 
+ * See BUILD_PHILOSOPHY.md for complete architectural guidance.
+ */
 import { useMemo, useState } from 'react'
 import AppShell from './components/layout/AppShell'
 import { stage1Analyze, stage1Rewrite } from './lib/api'

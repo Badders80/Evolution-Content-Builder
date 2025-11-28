@@ -1,0 +1,180 @@
+{
+  "templates": {
+    "pre_race": {
+      "display_name": "Pre-Race Update",
+      "description": "Build anticipation before a race with odds, conditions, and expectations",
+      "style": "70% visual poster",
+      "sections": [
+        {
+          "id": "summary",
+          "name": "Race Summary",
+          "required": true,
+          "max_words": 50
+        },
+        {
+          "id": "conditions",
+          "name": "Track & Conditions",
+          "required": true,
+          "max_words": 40
+        },
+        {
+          "id": "trainer_insight",
+          "name": "Trainer Insight",
+          "required": false,
+          "max_words": 60
+        },
+        {
+          "id": "expectations",
+          "name": "Expectations",
+          "required": true,
+          "max_words": 50
+        }
+      ],
+      "required_elements": ["race_date", "track_name", "horse_name"],
+      "optional_elements": ["odds", "barrier", "jockey", "weight"]
+    },
+    
+    "post_race": {
+      "display_name": "Post-Race Report",
+      "description": "Professional recap of race performance with analysis and next steps",
+      "style": "report format",
+      "sections": [
+        {
+          "id": "headline",
+          "name": "Result Headline",
+          "required": true,
+          "max_words": 8
+        },
+        {
+          "id": "summary",
+          "name": "Race Summary",
+          "required": true,
+          "max_words": 80
+        },
+        {
+          "id": "performance",
+          "name": "Performance Analysis",
+          "required": true,
+          "max_words": 100
+        },
+        {
+          "id": "trainer_quote",
+          "name": "Trainer Quote",
+          "required": false,
+          "max_words": 60
+        },
+        {
+          "id": "next_steps",
+          "name": "Next Steps",
+          "required": true,
+          "max_words": 50
+        }
+      ],
+      "required_elements": ["result", "track_name", "horse_name"],
+      "optional_elements": ["time", "margin", "sectionals", "jockey_comment"]
+    },
+    
+    "trainer_update": {
+      "display_name": "Trainer Update",
+      "description": "Training progress and fitness updates from the stable",
+      "style": "quote cards",
+      "sections": [
+        {
+          "id": "key_notes",
+          "name": "Key Notes",
+          "required": true,
+          "max_words": 60
+        },
+        {
+          "id": "condition",
+          "name": "Current Condition",
+          "required": true,
+          "max_words": 40
+        },
+        {
+          "id": "trainer_quote",
+          "name": "Trainer Quote",
+          "required": false,
+          "max_words": 50
+        },
+        {
+          "id": "next_steps",
+          "name": "Next Steps",
+          "required": true,
+          "max_words": 40
+        }
+      ],
+      "required_elements": ["horse_name", "trainer_name"],
+      "optional_elements": ["workout_details", "target_race"]
+    },
+    
+    "race_announcement": {
+      "display_name": "Race Announcement",
+      "description": "Upcoming race notification with key details",
+      "style": "teaser",
+      "sections": [
+        {
+          "id": "announcement",
+          "name": "Announcement",
+          "required": true,
+          "max_words": 40
+        },
+        {
+          "id": "race_details",
+          "name": "Race Details",
+          "required": true,
+          "max_words": 60
+        },
+        {
+          "id": "cta",
+          "name": "Call to Action",
+          "required": true,
+          "max_words": 20
+        }
+      ],
+      "required_elements": ["race_date", "track_name", "horse_name"],
+      "optional_elements": ["race_name", "distance", "prize_money"]
+    }
+  },
+  
+  "audiences": {
+    "investor": {
+      "description": "Syndicate investors seeking performance data and ROI insights",
+      "tone_bias": "formal",
+      "focus": ["performance_metrics", "financial_context", "strategic_outlook"]
+    },
+    "owner": {
+      "description": "Horse owners wanting updates on their investment",
+      "tone_bias": "balanced",
+      "focus": ["horse_welfare", "training_progress", "race_plans"]
+    },
+    "social": {
+      "description": "General racing fans and social media followers",
+      "tone_bias": "conversational",
+      "focus": ["excitement", "stories", "behind_the_scenes"]
+    },
+    "mixed": {
+      "description": "Broad audience requiring balanced approach",
+      "tone_bias": "balanced",
+      "focus": ["accessibility", "key_highlights", "engagement"]
+    }
+  },
+  
+  "length_presets": {
+    "short": {
+      "description": "Concise, social-friendly",
+      "word_target": 80,
+      "word_max": 120
+    },
+    "standard": {
+      "description": "Full update, balanced detail",
+      "word_target": 180,
+      "word_max": 250
+    },
+    "long": {
+      "description": "Comprehensive report",
+      "word_target": 350,
+      "word_max": 500
+    }
+  }
+}

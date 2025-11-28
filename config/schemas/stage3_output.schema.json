@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "stage3_output.schema.json",
+  "title": "Stage 3 Output Schema",
+  "description": "Schema for final rendered output from Stage 3",
+  
+  "type": "object",
+  "required": ["content", "renders", "export"],
+  
+  "properties": {
+    "content": {
+      "$ref": "stage2_refine.schema.json",
+      "description": "The approved Stage 2 content"
+    },
+    
+    "renders": {
+      "type": "object",
+      "description": "Rendered outputs for different formats",
+      "properties": {
+        "html": {
+          "type": "string",
+          "description": "Full HTML document"
+        },
+        "html_fragment": {
+          "type": "string",
+          "description": "HTML content without wrapper"
+        },
+        "plain_text": {
+          "type": "string",
+          "description": "Plain text version"
+        },
+        "markdown": {
+          "type": "string",
+          "description": "Markdown version"
+        }
+      }
+    },
+    
+    "responsive": {
+      "type": "object",
+      "description": "Device-specific render metadata",
+      "properties": {
+        "desktop": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer", "const": 1200 },
+            "layout": { "type": "string" }
+          }
+        },
+        "tablet": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer", "const": 768 },
+            "layout": { "type": "string" }
+          }
+        },
+        "phone": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer", "const": 375 },
+            "layout": { "type": "string" }
+          }
+        }
+      }
+    },
+    
+    "export": {
+      "type": "object",
+      "description": "Export information",
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "URL-safe identifier"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "formats_available": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["html", "pdf", "png", "json"]
+          }
+        },
+        "shareable_link": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    
+    "assets": {
+      "type": "object",
+      "properties": {
+        "images_used": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "logo": {
+          "type": "string"
+        },
+        "brand_assets": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
