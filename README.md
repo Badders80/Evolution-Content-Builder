@@ -86,6 +86,30 @@ python app.py
 
 Access at: http://localhost:8000
 
+### Evolution Seek (NeuralSeek clone)
+
+Set environment variables (or add them to a local `.env`):
+
+```
+GOOGLE_PROJECT_ID=<your_gcp_project_id>
+GOOGLE_LOCATION_ID=global  # optional, defaults to global
+VERTEX_SEARCH_DATASTORE_ID=<vertex_ai_search_datastore>
+```
+
+Then start the Seek API and UI in separate terminals:
+
+```bash
+# Terminal 1: FastAPI + Vertex AI Search
+uvicorn backend.server:app --reload --port 8000
+
+# Terminal 2: Streamlit UI
+streamlit run seek_app.py
+# optional override if deploying backend elsewhere:
+# SEEK_API_URL=http://localhost:8000/api/seek streamlit run seek_app.py
+```
+
+The Seek engine rewrites queries with Gemini, retrieves context from Vertex AI Search, and generates answers with Gemini 3.0 Pro/Flash. Enable DLP in the UI to sanitize PII before retrieval.
+
 ### 2. Start ComfyUI (Optional - for AI image generation)
 
 In a separate terminal:

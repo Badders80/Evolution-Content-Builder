@@ -7,10 +7,17 @@ uvicorn[standard]
 python-multipart==0.0.6
 pillow
 requests==2.31.0
+streamlit
+python-dotenv
 
 # LLM APIs
 openai
 google-generativeai
+google-cloud-vertexai
+
+# Retrieval + Safety (NeuralSeek clone)
+google-cloud-discoveryengine
+google-cloud-dlp
 
 # Local Image Generation (optional - requires CUDA GPU, ~5GB)
 # Uncomment if you want local Stable Diffusion support
