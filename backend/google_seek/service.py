@@ -2,14 +2,13 @@ import os
 from typing import Tuple
 
 from dotenv import load_dotenv
-import vertexai
-from vertexai.generative_models import GenerativeModel
-from google.cloud import discoveryengine_v1beta as discoveryengine
-from google.cloud import dlp_v2
+import google.generativeai as genai
 
 # Load environment variables from a local .env if present
 load_dotenv()
 
+# Try Gemini API key first (simpler), optionally layer Vertex AI Search/DLP if creds are present
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 LOCATION = os.getenv("GOOGLE_LOCATION_ID", "global")
 DATA_STORE_ID = os.getenv("VERTEX_SEARCH_DATASTORE_ID")
@@ -17,23 +16,50 @@ DATA_STORE_ID = os.getenv("VERTEX_SEARCH_DATASTORE_ID")
 
 class EvolutionSeek:
     def __init__(self):
-        if not PROJECT_ID or not DATA_STORE_ID:
-            raise ValueError(
-                "GOOGLE_PROJECT_ID and VERTEX_SEARCH_DATASTORE_ID must be set for EvolutionSeek."
-            )
+        self.search_client = None
+        self.dlp_client = None
 
-        vertexai.init(project=PROJECT_ID, location=LOCATION)
+        # Configure Gemini generation
+        if GEMINI_API_KEY:
+            genai.configure(api_key=GEMINI_API_KEY)
+            self.flash = genai.GenerativeModel("gemini-2.0-flash")
+            self.pro = genai.GenerativeModel("gemini-2.5-pro")
+        elif PROJECT_ID:
+            # Fall back to Vertex AI SDK for generation (requires project + ADC)
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
 
-        self.search_client = discoveryengine.SearchServiceClient()
-        self.dlp_client = dlp_v2.DlpServiceClient()
+            vertexai.init(project=PROJECT_ID, location=LOCATION)
+            self.flash = GenerativeModel("gemini-2.0-flash")
+            self.pro = GenerativeModel("gemini-2.5-pro")
+        else:
+            raise ValueError("Either GEMINI_API_KEY or GOOGLE_PROJECT_ID must be set.")
 
-        self.flash = GenerativeModel("gemini-2.0-flash")
-        self.pro = GenerativeModel("gemini-3.0-pro")
+        # Optional: Discovery Engine search (requires project + datastore + ADC)
+        if PROJECT_ID and DATA_STORE_ID:
+            try:
+                from google.cloud import discoveryengine_v1beta as discoveryengine
+
+                self.search_client = discoveryengine.SearchServiceClient()
+            except Exception as exc:  # pragma: no cover - runtime guard rail
+                print(f"⚠️ Vertex Search unavailable: {exc}")
+
+        # Optional: DLP for sanitisation (requires ADC)
+        if PROJECT_ID:
+            try:
+                from google.cloud import dlp_v2
+
+                self.dlp_client = dlp_v2.DlpServiceClient()
+            except Exception as exc:  # pragma: no cover - runtime guard rail
+                print(f"⚠️ DLP unavailable: {exc}")
 
     # --------------------------
     # Optional: PII Sanitisation
     # --------------------------
     async def sanitize(self, text: str) -> str:
+        if not self.dlp_client:
+            return text  # Skip DLP if not available
+            
         request = {
             "parent": f"projects/{PROJECT_ID}/locations/global",
             "item": {"value": text},
@@ -73,6 +99,12 @@ class EvolutionSeek:
     # Retrieval Layer (Vertex AI Search)
     # --------------------------
     async def retrieve(self, query: str) -> Tuple[str, list[dict]]:
+        # If no search client (API key mode), return empty context
+        if not self.search_client:
+            return "", []
+        
+        from google.cloud import discoveryengine_v1beta as discoveryengine
+        
         serving_config = self.search_client.serving_config_path(
             project=PROJECT_ID,
             location="global",
@@ -140,6 +172,17 @@ class EvolutionSeek:
             "legal": "Summarise with precision and preserve legal meaning.",
         }.get(task, "Provide a clear answer.")
 
+        # Build prompt - adjust based on whether we have context
+        context_section = f"""
+        CONTEXT (use this as reference):
+        {context}
+        """ if context else ""
+        
+        fallback_instruction = """
+        If you cannot answer based on the provided context, say:
+        "I don't have enough information in our docs to answer that."
+        """ if task == "general" and not context else ""
+
         prompt = f"""
         You are the Evolution Stables content engine.
 
@@ -151,15 +194,10 @@ class EvolutionSeek:
 
         TASK:
         {task_instruction}
-
-        CONTEXT (use ONLY this):
-        {context}
-
-        USER QUESTION:
+        {context_section}
+        USER REQUEST:
         {cleaned}
-
-        If context does not contain the answer, say:
-        "I don't have enough information in our docs to answer that."
+        {fallback_instruction}
         """
 
         result = model.generate_content(prompt)
@@ -170,4 +208,3 @@ class EvolutionSeek:
             "rewritten_query": rewritten,
             "sources": sources,
         }
-

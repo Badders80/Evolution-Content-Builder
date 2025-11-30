@@ -1,0 +1,10 @@
+# Place your documents here for auto-ingestion
+# Supported: PDF, TXT, MD, DOCX, HTML
+# 
+# Examples:
+# - trainer-reports/first-gear-nov-2025.pdf
+# - nztr-rules/syndication-guidelines.pdf
+# - brand/evolution-brand-bible.pdf
+# - contracts/pds-template.pdf
+#
+# Run: python scripts/upload_docs.py

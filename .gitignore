@@ -32,3 +32,12 @@ Thumbs.db
 
 # Environment variables with secrets
 .env
+
+# Service account keys (NEVER commit these!)
+keys/*.json
+service-account.json
+*.pem
+
+# Google Cloud SDK (install locally, don't commit)
+google-cloud-sdk/
+google-cloud-cli*.tar.gz

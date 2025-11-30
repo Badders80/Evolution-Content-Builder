@@ -19,6 +19,9 @@ google-cloud-vertexai
 google-cloud-discoveryengine
 google-cloud-dlp
 
+# Auth
+PyJWT
+
 # Local Image Generation (optional - requires CUDA GPU, ~5GB)
 # Uncomment if you want local Stable Diffusion support
 # torch==2.1.0
