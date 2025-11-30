@@ -2,11 +2,11 @@
  * Evolution Content Builder — Main Application
  * 
  * This is the entry point for the React frontend.
- * It orchestrates the 3-stage content pipeline with a financial dashboard interface:
+ * It orchestrates the 3-stage content pipeline:
  * 
- * - Dashboard: Portfolio overview with content ledger
- * - Builder: 3-stage content pipeline (Creation → Refinement → Export)
- * - Research: RAG-powered knowledge base
+ * Stage 1: Text Creation — Convert raw input to structured JSON
+ * Stage 2: Refinement — Polish content, enforce brand tone
+ * Stage 3: Output — Render to HTML/PDF, apply layouts
  * 
  * Architecture principles:
  * - All brand rules loaded from /config (see lib/config.ts)
@@ -17,8 +17,6 @@
  * See BUILD_PHILOSOPHY.md for complete architectural guidance.
  */
 import { useMemo, useState } from 'react'
-import FinancialLayout from './components/layout/FinancialLayout'
-import Dashboard from './components/pages/Dashboard'
 import AppShell from './components/layout/AppShell'
 import { stage1Analyze, stage1Rewrite } from './lib/api'
 import { StudioPanel } from './components/Studio'
@@ -45,10 +43,7 @@ const toneFromSlider = (value: number): ToneType => {
 }
 
 function App() {
-  // View navigation (Dashboard vs Builder)
-  const [view, setView] = useState<'dashboard' | 'builder' | 'research'>('dashboard')
-  
-  // Stage navigation (within Builder)
+  // Stage navigation
   const [currentStage, setCurrentStage] = useState<1 | 2 | 3>(1)
   
   const [rawText, setRawText] = useState('')
@@ -459,23 +454,6 @@ ${content.key_points.map(point => `- ${point}`).join('\n')}
     : 'HTML/PDF Output'
 
   return (
-    <FinancialLayout 
-      activePage={view} 
-      onNavigate={(page) => {
-        setView(page as 'dashboard' | 'builder' | 'research')
-        // Reset to stage 1 when entering builder
-        if (page === 'builder') {
-          setCurrentStage(1)
-        }
-      }}
-    >
-      {/* Dashboard View */}
-      {view === 'dashboard' && (
-        <Dashboard onNewReport={() => setView('builder')} />
-      )}
-      
-      {/* Builder View (3-stage pipeline) */}
-      {view === 'builder' && (
     <AppShell template={`Stage ${currentStage} — ${stageTitle}`}>
       <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -1176,18 +1154,7 @@ ${content.key_points.map(point => `- ${point}`).join('\n')}
         </div>
       )}
     </AppShell>
-      )}
-      
-      {/* Research View (RAG Interface) */}
-      {view === 'research' && (
-        <div className="p-8 text-fin-text">
-          <h2 className="text-2xl font-bold font-serif mb-4">Research Mode</h2>
-          <p className="text-fin-muted">RAG-powered knowledge base coming soon...</p>
-        </div>
-      )}
-    </FinancialLayout>
   )
 }
 
 export default App
-

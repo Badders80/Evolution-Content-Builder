@@ -34,6 +34,7 @@ const STUDIO_OPTIONS: { type: StudioOutputType; name: string; icon: string; desc
 ]
 
 export default function StudioPanel({ content, title }: StudioPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const [selectedType, setSelectedType] = useState<StudioOutputType | null>(null)
   const [result, setResult] = useState<StudioResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -84,14 +85,34 @@ export default function StudioPanel({ content, title }: StudioPanelProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">✨</span>
-        <h2 className="text-lg font-semibold text-gray-800">Studio</h2>
-      </div>
+    <div className="bg-white rounded-lg border border-gray-200">
+      {/* Header with collapse toggle */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">✨</span>
+          <h2 className="text-lg font-semibold text-gray-800">Studio</h2>
+          {!content.trim() && (
+            <span className="text-xs text-gray-400">(Enter content to enable)</span>
+          )}
+        </div>
+        <svg
+          className={`h-5 w-5 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-      {/* Output type buttons */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      {/* Collapsible content */}
+      {!isCollapsed && (
+        <div className="p-4 pt-0 border-t border-gray-100">
+          {/* Output type buttons */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
         {STUDIO_OPTIONS.map((option) => (
           <button
             key={option.type}
@@ -139,6 +160,8 @@ export default function StudioPanel({ content, title }: StudioPanelProps) {
         <p className="text-gray-500 text-sm text-center py-4">
           Enter content above to generate Studio outputs
         </p>
+      )}
+        </div>
       )}
     </div>
   )
