@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .service import EvolutionSeek
+from backend.logging_utils import log_event
 
 router = APIRouter()
 
@@ -33,6 +34,16 @@ async def seek(request: SeekRequest):
             web=bool(auto_web),
             web_results=request.web_results,
         )
+        log_event(
+            "seek_request",
+            ok=result.get("ok", True),
+            task=request.task,
+            grounded=request.grounded,
+            web=bool(auto_web),
+            has_sources=bool(result.get("sources")),
+            has_web=bool(result.get("web_sources")),
+        )
         return result
     except Exception as exc:  # surface clean error details to the caller
+        log_event("seek_request_error", task=request.task, error=str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc

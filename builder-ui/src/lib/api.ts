@@ -69,7 +69,7 @@ export async function generateHtml(structured: StructuredContent): Promise<Gener
 }
 
 export async function stage1Analyze(payload: Stage1AnalyzeRequest): Promise<Stage1AnalyzeResponse> {
-  const response = await fetch(`${API_BASE_URL}/stage1/analyse`, {
+  const response = await fetch(`${API_BASE_URL}/api/stage1/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -84,7 +84,7 @@ export async function stage1Analyze(payload: Stage1AnalyzeRequest): Promise<Stag
 }
 
 export async function stage1Rewrite(payload: Stage1RewriteRequest): Promise<Stage1RewriteResponse> {
-  const response = await fetch(`${API_BASE_URL}/stage1/rewrite`, {
+  const response = await fetch(`${API_BASE_URL}/api/stage1/rewrite`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

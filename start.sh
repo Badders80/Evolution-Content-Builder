@@ -1,22 +1,36 @@
 #!/bin/bash
-# Quick start script for Evolution Content Builder
 
-cd /mnt/e/Evolution-Content-Builder
+echo "-------------------------------------------------"
+echo " 🚀 Evolution Content Builder — Starting Engine"
+echo "-------------------------------------------------"
 
-echo "=== Starting Evolution Content Builder ==="
-echo ""
+# Kill stale ports (8000 + 5173)
+echo "🔧 Cleaning old processes..."
+lsof -ti:8000 | xargs -r kill -9
+lsof -ti:5173 | xargs -r kill -9
 
-# Check if venv exists
-if [ ! -d "venv" ]; then
-    echo "Error: Virtual environment not found. Run ./setup.sh first."
-    exit 1
+# Start backend
+echo "🟢 Starting Backend (port 8000)..."
+(uvicorn backend.main:app --port 8000 --reload > backend.log 2>&1 &)
+sleep 2
+
+# Start frontend
+echo "🟣 Starting Frontend (port 5173)..."
+(cd builder-ui && npm run dev > frontend.log 2>&1 &)
+sleep 3
+
+# Open browser
+echo "🌐 Opening the Builder UI..."
+if command -v xdg-open >/dev/null; then
+    xdg-open http://localhost:5173
+elif command -v open >/dev/null; then
+    open http://localhost:5173
+else
+    echo "Please open: http://localhost:5173"
 fi
 
-# Activate venv and start app
-source venv/bin/activate
-
-echo "Starting FastAPI backend on http://localhost:8000"
-echo "Press Ctrl+C to stop"
-echo ""
-
-python app.py
+echo "-------------------------------------------------"
+echo " ✅ Evolution Engine is LIVE"
+echo " 🧠 Backend: http://localhost:8000/health"
+echo " 🎨 Frontend: http://localhost:5173"
+echo "-------------------------------------------------"

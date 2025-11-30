@@ -109,6 +109,8 @@ GET /health
 # -> { "status": "ok", "seek_enabled": true/false, "vertex_search_configured": true/false, "duckduckgo_enabled": true/false }
 ```
 
+Frontend contract and payload shapes: see `docs/FRONTEND-CONTRACT.md`.
+
 Task defaults:
 - `race_preview`, `race_update`: web context auto-enabled (DuckDuckGo) unless toggled off.
 - `legal`, `investor`, `governance`: web off by default (internal-only).

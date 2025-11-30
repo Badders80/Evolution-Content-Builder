@@ -24,6 +24,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import traceback
+import tempfile
+import os
+from backend.logging_utils import setup_logging, log_event
 
 # Import all routers from modules
 from backend.google_seek.router import router as seek_router
@@ -78,6 +81,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+setup_logging()
 
 # CORS Configuration
 app.add_middleware(
@@ -148,16 +152,18 @@ def _vertex_search_configured() -> bool:
 @app.get("/health")
 async def health():
     """System health check - reports status of all integrated services"""
+    services = {
+        "gemini": bool(GEMINI_API_KEY),
+        "vertex_search": _vertex_search_configured(),
+        "duckduckgo": DDG_ENABLED and DDG_AVAILABLE,
+        "app_helpers": APP_HELPERS_AVAILABLE,
+    }
+    log_event("health_check", **services)
     return {
         "status": "ok",
         "backend": "unified",
         "version": "3.0.0",
-        "services": {
-            "gemini": bool(GEMINI_API_KEY),
-            "vertex_search": _vertex_search_configured(),
-            "duckduckgo": DDG_ENABLED and DDG_AVAILABLE,
-            "app_helpers": APP_HELPERS_AVAILABLE,
-        },
+        "services": services,
         "endpoints": {
             "stage1_analyze": "/api/stage1/analyze",
             "stage1_rewrite": "/api/stage1/rewrite",
@@ -376,6 +382,97 @@ Generate only the {req.field} text, no explanations."""
         }
 
 # ============================================================================
+# AUDIO TRANSCRIPTION (Gemini)
+# ============================================================================
+
+@app.post("/api/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Transcribe audio files using Google Gemini 2.0 (multimodal)
+    Supports: .m4a, .mp3, .wav, .webm, .mp4, .flac, .ogg
+    """
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API key not configured. Add GEMINI_API_KEY to .env file."
+        )
+    
+    # Validate file type
+    allowed_extensions = {'.m4a', '.mp3', '.wav', '.webm', '.mp4', '.mpeg', '.mpga', '.flac', '.ogg'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file_ext}. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Read audio content
+    content = await file.read()
+    
+    # Check file size (reasonable limit for Gemini: 50MB)
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File too large. Maximum size: 50MB"
+        )
+    
+    try:
+        import google.generativeai as genai
+        import mimetypes
+        
+        # Configure Gemini
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Determine MIME type
+        mime_type = mimetypes.guess_type(file.filename)[0]
+        if not mime_type:
+            mime_type = 'audio/mpeg' if file_ext == '.mp3' else 'audio/mp4'
+        
+        # Save to temporary file for upload
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+        
+        try:
+            # Upload audio file to Gemini
+            audio_file = genai.upload_file(tmp_path, mime_type=mime_type)
+            
+            # Use Gemini 3.0 Pro - best multimodal model for audio transcription
+            model = genai.GenerativeModel('gemini-3-pro-preview')
+            
+            # Generate transcription
+            response = model.generate_content([
+                audio_file,
+                "Transcribe this audio file verbatim. Return ONLY the transcription text, no additional commentary."
+            ])
+            
+            # Clean up uploaded file from Gemini
+            try:
+                audio_file.delete()
+            except:
+                pass
+            
+            return {
+                "text": response.text,
+                "filename": file.filename,
+                "success": True,
+                "provider": "gemini-3-pro"
+            }
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transcription failed: {str(e)}"
+        )
+
+# ============================================================================
 # MOUNT ALL MODULE ROUTERS
 # ============================================================================
 
@@ -395,4 +492,3 @@ if __name__ == "__main__":
     print(f"📚 API Docs: http://localhost:{port}/docs")
     print(f"❤️ Health Check: http://localhost:{port}/health")
     uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
-

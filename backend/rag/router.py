@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from dotenv import load_dotenv
+from backend.logging_utils import log_event
 
 load_dotenv()
 
@@ -41,13 +42,19 @@ async def rag_query(request: RAGRequest):
         
         # Step 2: Generate grounded answer with Gemini
         answer = await _generate_answer(request.query, context)
-        
+        log_event(
+            "rag_query",
+            ok=True,
+            has_context=bool(context),
+            source_count=len(sources),
+        )
         return RAGResponse(
             answer=answer,
             sources=sources,
             query=request.query
         )
     except Exception as e:
+        log_event("rag_query_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

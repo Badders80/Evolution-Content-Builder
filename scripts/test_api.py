@@ -34,9 +34,22 @@ def main():
     )
     status |= check("/api/rag", method="post", payload={"query": "What is Evolution Stables?", "max_results": 3})
     status |= check("/api/auth/search-token")
+    # Optional PDF render test if available
+    try:
+        status |= check("/api/render", method="post", payload={"html": "<h1>Test PDF</h1>"})
+    except Exception:
+        print("Skipping /api/render (not available).")
+    # Optional citation metadata test (if seek returns citations)
+    try:
+        status |= check(
+            "/api/seek",
+            method="post",
+            payload={"query": "Include citations about Evolution Stables", "task": "general", "grounded": False},
+        )
+    except Exception:
+        print("Skipping citation check.")
     return 0 if status else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

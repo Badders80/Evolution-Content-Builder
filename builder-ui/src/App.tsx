@@ -86,7 +86,43 @@ function App() {
         }
         reader.readAsText(file)
       }
+      
+      // Auto-transcribe audio files
+      if (file.type.startsWith('audio/') || 
+          file.name.endsWith('.m4a') || 
+          file.name.endsWith('.mp3') || 
+          file.name.endsWith('.wav')) {
+        transcribeAudio(file)
+      }
     })
+  }
+
+  // Transcribe audio file using Whisper API
+  const transcribeAudio = async (file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch(`${apiUrl}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('Transcription failed:', error.detail)
+        alert(`Transcription failed: ${error.detail || 'Unknown error'}`)
+        return
+      }
+      
+      const data = await response.json()
+      if (data.success && data.text) {
+        setRawText(prev => prev + (prev ? '\n\n' : '') + `[Transcription from ${file.name}]\n${data.text}`)
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error)
+      alert('Failed to transcribe audio file. Check console for details.')
+    }
   }
 
   // Handle drag events
