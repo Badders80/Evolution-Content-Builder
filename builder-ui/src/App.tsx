@@ -43,6 +43,9 @@ const toneFromSlider = (value: number): ToneType => {
 }
 
 function App() {
+  // Stage navigation
+  const [currentStage, setCurrentStage] = useState<1 | 2 | 3>(1)
+  
   const [rawText, setRawText] = useState('')
   const [preset, setPreset] = useState<PresetType>('post_race')
   const [audience, setAudience] = useState<AudienceType>('investor')
@@ -197,22 +200,63 @@ function App() {
     }
   }
 
+  const stageTitle = currentStage === 1 
+    ? 'Text Creation & Refinement' 
+    : currentStage === 2 
+    ? 'Content Refinement' 
+    : 'Preview & Export'
+
+  const stageDescription = currentStage === 1
+    ? 'Raw → Structured JSON'
+    : currentStage === 2
+    ? 'Polish & Brand Compliance'
+    : 'HTML/PDF Output'
+
   return (
-    <AppShell template="Stage 1 — Text Creation">
+    <AppShell template={`Stage ${currentStage} — ${stageTitle}`}>
       <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-100">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Stage 1</p>
-              <h1 className="text-2xl font-semibold text-gray-900">Text Creation & Refinement</h1>
+          
+          {/* Stage Stepper */}
+          <div className="mb-6">
+            <div className="flex items-center justify-center gap-2">
+              {[1, 2, 3].map((stage) => (
+                <div key={stage} className="flex items-center">
+                  <button
+                    onClick={() => {
+                      // Only allow navigation to completed stages or current stage
+                      if (stage === 1 || (stage === 2 && content) || (stage === 3 && content)) {
+                        setCurrentStage(stage as 1 | 2 | 3)
+                      }
+                    }}
+                    disabled={stage === 2 && !content}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+                      stage === currentStage
+                        ? 'bg-gray-900 text-white ring-4 ring-gray-900 ring-offset-2'
+                        : stage < currentStage || (stage === 2 && content)
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {stage < currentStage || (stage === 2 && content && currentStage === 3) ? '✓' : stage}
+                  </button>
+                  {stage < 3 && (
+                    <div className={`h-0.5 w-16 ${stage < currentStage ? 'bg-gray-900' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-                Raw → Structured JSON
-              </span>
+            <div className="mt-4 text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                Stage {currentStage}
+              </p>
+              <h1 className="text-2xl font-semibold text-gray-900">{stageTitle}</h1>
+              <p className="mt-1 text-sm text-gray-600">{stageDescription}</p>
             </div>
           </div>
 
+          {/* Stage 1: Text Creation */}
+          {currentStage === 1 && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             {/* Controls + Raw Input */}
             <section className="lg:col-span-5 space-y-4 rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm ring-1 ring-gray-100">
@@ -574,6 +618,193 @@ function App() {
               )}
             </section>
           </div>
+          )}
+
+          {/* Stage 1 Navigation */}
+          {currentStage === 1 && content && (
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setCurrentStage(2)}
+                className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-gray-800 transition-colors"
+              >
+                Continue to Refinement
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Stage 2: Refinement */}
+          {currentStage === 2 && content && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Content Refinement</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Review and edit your generated content. Adjust tone, fix details, and ensure brand compliance.
+                </p>
+
+                {/* Editable Content */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                      Headline
+                    </label>
+                    <input
+                      type="text"
+                      value={content.headline}
+                      onChange={(e) => setContent({ ...content, headline: e.target.value })}
+                      className="block w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 px-4 text-base font-semibold focus:border-gray-500 focus:ring-gray-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                      Subheadline
+                    </label>
+                    <input
+                      type="text"
+                      value={content.subheadline || ''}
+                      onChange={(e) => setContent({ ...content, subheadline: e.target.value })}
+                      className="block w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 px-4 text-sm focus:border-gray-500 focus:ring-gray-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                      Sections
+                    </label>
+                    {content.sections.map((section, idx) => (
+                      <div key={section.id} className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <input
+                          type="text"
+                          value={section.heading}
+                          onChange={(e) => {
+                            const newSections = [...content.sections]
+                            newSections[idx].heading = e.target.value
+                            setContent({ ...content, sections: newSections })
+                          }}
+                          className="block w-full rounded-lg border-gray-300 bg-white py-2 px-3 text-sm font-semibold mb-2 focus:border-gray-500 focus:ring-gray-500"
+                          placeholder="Section heading"
+                        />
+                        <textarea
+                          value={section.body}
+                          onChange={(e) => {
+                            const newSections = [...content.sections]
+                            newSections[idx].body = e.target.value
+                            setContent({ ...content, sections: newSections })
+                          }}
+                          rows={4}
+                          className="block w-full rounded-lg border-gray-300 bg-white py-2 px-3 text-sm focus:border-gray-500 focus:ring-gray-500"
+                          placeholder="Section content"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage 2 Navigation */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setCurrentStage(1)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Creation
+                </button>
+                <button
+                  onClick={() => setCurrentStage(3)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-gray-800 transition-colors"
+                >
+                  Continue to Export
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Stage 3: Preview & Export */}
+          {currentStage === 3 && content && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Preview & Export</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Preview your final content and export to HTML or PDF format.
+                </p>
+
+                {/* Preview */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 mb-6">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{content.headline}</h1>
+                  {content.subheadline && (
+                    <p className="text-xl text-gray-700 mb-6">{content.subheadline}</p>
+                  )}
+                  
+                  {content.sections.map((section) => (
+                    <div key={section.id} className="mb-6">
+                      <h2 className="text-xl font-semibold text-gray-900 mb-3">{section.heading}</h2>
+                      <p className="text-gray-800 whitespace-pre-line leading-relaxed">{section.body}</p>
+                    </div>
+                  ))}
+
+                  {content.key_points && content.key_points.length > 0 && (
+                    <div className="mt-6 rounded-lg bg-white border border-gray-200 p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Key Points</h3>
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-gray-800">
+                        {content.key_points.map((point, idx) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Export Buttons */}
+                <div className="flex gap-3">
+                  <button className="flex-1 rounded-lg border-2 border-gray-900 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors">
+                    Export as HTML
+                  </button>
+                  <button className="flex-1 rounded-lg border-2 border-gray-900 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors">
+                    Export as Markdown
+                  </button>
+                  <button className="flex-1 rounded-lg bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors">
+                    Export as PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* Stage 3 Navigation */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setCurrentStage(2)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Refinement
+                </button>
+                <button
+                  onClick={() => {
+                    // Reset to start new content
+                    setCurrentStage(1)
+                    setContent(null)
+                    setRawText('')
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-green-700 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Start New Content
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
