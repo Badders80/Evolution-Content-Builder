@@ -9,6 +9,7 @@ pillow
 requests==2.31.0
 streamlit
 python-dotenv
+duckduckgo-search
 
 # LLM APIs
 openai

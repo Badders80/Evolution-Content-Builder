@@ -81,10 +81,42 @@ mkdir training_data
 ```bash
 cd /mnt/e/Evolution-Content-Builder
 source venv/bin/activate
-python app.py
+uvicorn backend.main:app --reload --port 8000
 ```
 
 Access at: http://localhost:8000
+
+### How the Engine Flows
+
+```
+Streamlit UI / API client
+        ↓
+    /api/seek
+        ↓
+   task router
+   ├─ grounded? → Vertex AI Search
+   ├─ web?      → DuckDuckGo snippets
+   ↓
+  Gemini (flash/pro)
+        ↓
+      Response → UI
+```
+
+Health check:
+
+```
+GET /health
+# -> { "status": "ok", "seek_enabled": true/false, "vertex_search_configured": true/false, "duckduckgo_enabled": true/false }
+```
+
+Task defaults:
+- `race_preview`, `race_update`: web context auto-enabled (DuckDuckGo) unless toggled off.
+- `legal`, `investor`, `governance`: web off by default (internal-only).
+- Grounding (Vertex Search) requires `GOOGLE_PROJECT_ID`, `VERTEX_SEARCH_DATASTORE_ID`, and ADC/service account.
+
+DDG toggle: controlled per-request (`web` flag) and via UI toggle; safe to leave off if external web context not desired.
+
+Grounding warnings: if `grounded=true` but Vertex Search/ADC isn’t configured, the API responds with `{ok: false, error: "..."}`
 
 ### Evolution Seek (NeuralSeek clone)
 
@@ -99,8 +131,8 @@ VERTEX_SEARCH_DATASTORE_ID=<vertex_ai_search_datastore>
 Then start the Seek API and UI in separate terminals:
 
 ```bash
-# Terminal 1: FastAPI + Vertex AI Search
-uvicorn backend.server:app --reload --port 8000
+# Terminal 1: Unified FastAPI backend (legacy + Seek)
+uvicorn backend.main:app --reload --port 8000
 
 # Terminal 2: Streamlit UI
 streamlit run seek_app.py
