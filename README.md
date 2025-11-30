@@ -1,56 +1,114 @@
 # Evolution Content Builder
 
-AI-powered content generation system for Evolution Racing's brand materials, social posts, and race updates.
+AI-powered content generation system for **Evolution Stables** - transforming race updates into professional investor reports.
+
+## 🎯 Current Status: Phase 1 (API-Driven) - Production Ready
+
+**✅ Working NOW:**
+- 🎙️ Audio transcription (Gemini 3.0 Pro)
+- 🤖 AI content rewriting (Gemini 2.0 Flash)
+- 🔍 Research Mode (RAG via Vertex AI)
+- 📸 Manual image upload (real horse photos)
+- 📊 Content analysis & brand compliance
+
+**⏳ Phase 2 (Planned):**
+- Ollama (local LLM for offline mode)
+- ComfyUI (brand-specific AI image generation)
+
+👉 **See [IMPLEMENTATION-STATUS.md](./IMPLEMENTATION-STATUS.md) for detailed feature breakdown**
+
+---
 
 ## Features
 
+- **Audio Transcription**: Upload race day voice memos → auto-transcribe to text
+- **Research Mode**: Query your knowledge base → auto-populate content
+- **AI Rewriting**: Raw updates → polished investor reports (brand-compliant)
 - **Multi-Input Support**: Drag/drop files, paste text/images, or upload media
-- **Brand Asset Library**: Select from pre-approved Evolution brand assets
-- **Smart Templates**: Auto-classifies content (pre-race, post-race, trainer updates, etc.)
-- **AI Image Generation**: ComfyUI integration with custom LoRA for brand consistency
-- **4MAT Structure**: Outputs follow proven content framework
-- **Brand Bible Compliance**: Taglines, tone, and styling match Evolution guidelines
-- **Export Options**: HTML and PDF output
+- **Smart Analysis**: Word count, readability, keywords, sentiment
+- **4MAT Structure**: Content follows proven framework (Why, What, How, What If)
+- **Device Preview**: See how reports look on desktop/tablet/mobile
+- **Export Options**: HTML and Markdown output
 
 ## Tech Stack
 
-- **Backend**: FastAPI (Python)
-- **Frontend**: Vanilla JS + Pico CSS
-- **AI Image Gen**: ComfyUI + SDXL Lightning
-- **LoRA Training**: Kohya_ss
-- **GPU**: CUDA 12.1 (RTX 3060 optimized)
+### Phase 1 (Current)
+- **Backend**: FastAPI 0.109.0 (Python 3.10+)
+- **Frontend**: React 19 + TypeScript + Vite 7.2 + Tailwind CSS
+- **AI Services**: Google Gemini (3.0 Pro, 2.0 Flash), Vertex AI Search
+- **Hosting**: Local development (ports 8000, 5173)
 
-## Installation
+### Phase 2 (Future)
+- **Local LLM**: Ollama + Mistral 7B / Llama 3 8B
+- **Image Gen**: ComfyUI + SDXL + Custom LoRA
+- **GPU**: CUDA 12.1+ (RTX 3060 or better recommended)
 
-### Quick Start (Automated)
+---
 
-```bash
-cd /mnt/e/Evolution-Content-Builder
-chmod +x setup.sh
-./setup.sh
-```
+## Quick Start
 
-The script will:
-1. Update system packages
-2. Install Python dependencies
-3. Clone and configure ComfyUI
-4. Clone and configure Kohya_ss
-5. Download SDXL Lightning model
-6. Create necessary directories
+### Prerequisites
 
-### Manual Setup
+- **Python 3.10+**
+- **Node.js 18+** (for frontend)
+- **Google Cloud API Key** (for Gemini)
 
-If you prefer manual installation:
+### Installation
 
 ```bash
-# System dependencies
-sudo apt update && sudo apt upgrade -y
-sudo apt install python3-venv python3-pip git wget curl -y
+# 1. Clone repository
+git clone https://github.com/Badders80/Evolution-Content-Builder.git
+cd Evolution-Content-Builder
 
-# Main app
-cd /mnt/e/Evolution-Content-Builder
+# 2. Configure API key
+cp .env.example .env
+nano .env  # Add your GEMINI_API_KEY
+
+# 3. Install dependencies
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+
+cd builder-ui
+npm install
+cd ..
+
+# 4. Start servers
+./start.sh
+```
+
+**Access Points:**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+
+### Testing
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Test audio transcription
+curl -X POST http://localhost:8000/api/transcribe \
+  -F "audio=@your_audio.mp3"
+
+# Test AI rewrite
+curl -X POST http://localhost:8000/api/stage1/rewrite \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preset": "post_race",
+    "raw_text": "First Gear won at Wanganui",
+    "tone": "balanced",
+    "length": "standard",
+    "audience": "investors"
+  }'
+```
+
+---
+
+## Phase 2 Setup (Optional - For Later)
+
+### Local LLM (Ollama)
 pip install -r requirements.txt
 
 # ComfyUI
@@ -261,18 +319,36 @@ TEMPLATES = {
 }
 ```
 
-### Customizing Taglines
+---
 
-Edit `lib/taglines.json` with your brand taglines.
+## 📚 Documentation
 
-### Modifying Styles
+- **[IMPLEMENTATION-STATUS.md](./IMPLEMENTATION-STATUS.md)** - Phase 1 vs Phase 2 breakdown
+- **[TECHNICAL-OVERVIEW.md](./TECHNICAL-OVERVIEW.md)** - Full architecture documentation  
+- **[docs/COMFYUI-SETUP.md](./docs/COMFYUI-SETUP.md)** - Image generation (Phase 2)
 
-Edit the `<style>` section in `index.html` or generated HTML templates in `app.py`.
+---
+
+## 🎯 Quick Decision Guide
+
+**"Should I set up ComfyUI now?"**  
+→ No. Use real horse photos for investor reports (more credible than AI).
+
+**"Should I set up Ollama now?"**  
+→ No. Gemini API is fast and has free tier. Local LLM = cost optimization later.
+
+**"What should I focus on NOW?"**  
+→ Test full workflow → Generate sample reports → Get feedback → Prove ROI
+
+**"When should I do Phase 2?"**  
+→ When generating 100+ reports/month OR need offline capability OR want brand-specific AI imagery for social media.
+
+---
 
 ## License
 
-Proprietary - Evolution Racing
+Proprietary - Evolution Stables © 2025
 
 ## Support
 
-For issues or questions, contact the Evolution tech team.
+For issues or questions, contact the Evolution development team.

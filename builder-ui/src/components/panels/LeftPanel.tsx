@@ -81,6 +81,9 @@ export default function LeftPanel({
 }: LeftPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const [customTagline, setCustomTagline] = useState('')
+  const [inputMode, setInputMode] = useState<'text' | 'research'>('text')
+  const [researchQuery, setResearchQuery] = useState('')
+  const [researchLoading, setResearchLoading] = useState(false)
   const isCustomTagline = tagline === 'Custom...' || !TAGLINES.includes(tagline)
 
   const handleDrag = (e: React.DragEvent) => {
@@ -126,6 +129,39 @@ export default function LeftPanel({
       onTaglineChange(customTagline || '')
     } else {
       onTaglineChange(value)
+    }
+  }
+
+  const handleResearch = async () => {
+    if (!researchQuery.trim()) return
+    
+    setResearchLoading(true)
+    try {
+      const response = await fetch('/api/rag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: researchQuery, max_results: 5 })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Research failed')
+      }
+      
+      const data = await response.json()
+      
+      // Append research results to raw content
+      let researchText = `[Research: ${researchQuery}]\n\n${data.answer}\n\n`
+      if (data.sources && data.sources.length > 0) {
+        researchText += 'Sources:\n' + data.sources.map((s: any) => `- ${s.title || s.url}`).join('\n')
+      }
+      
+      onRawContentChange(rawContent + (rawContent ? '\n\n' : '') + researchText)
+      setResearchQuery('')
+    } catch (error) {
+      console.error('Research error:', error)
+      alert('Research failed. Check console for details.')
+    } finally {
+      setResearchLoading(false)
     }
   }
 
@@ -215,15 +251,79 @@ export default function LeftPanel({
 
         {/* Content Card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Source Content</h3>
-          <textarea
-            id="content"
-            value={rawContent}
-            onChange={(e) => onRawContentChange(e.target.value)}
-            placeholder="Paste your raw content here (race notes, transcripts, updates)..."
-            rows={8}
-            className="block w-full rounded-lg border-gray-300 bg-gray-50 py-3 px-4 text-sm focus:border-gray-500 focus:ring-gray-500 resize-none"
-          />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Source Content</h3>
+            
+            {/* Input Mode Toggle */}
+            <div className="flex gap-2 rounded-lg bg-gray-100 p-1">
+              <button
+                onClick={() => setInputMode('text')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  inputMode === 'text'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Raw Text
+              </button>
+              <button
+                onClick={() => setInputMode('research')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  inputMode === 'research'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🔍 Research
+              </button>
+            </div>
+          </div>
+
+          {inputMode === 'text' ? (
+            <textarea
+              id="content"
+              value={rawContent}
+              onChange={(e) => onRawContentChange(e.target.value)}
+              placeholder="Paste your raw content here (race notes, transcripts, updates)..."
+              rows={8}
+              className="block w-full rounded-lg border-gray-300 bg-gray-50 py-3 px-4 text-sm focus:border-gray-500 focus:ring-gray-500 resize-none"
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={researchQuery}
+                  onChange={(e) => setResearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleResearch()}
+                  placeholder="Ask a question... (e.g., 'Summarise First Gear's last race')"
+                  className="block w-full rounded-lg border-gray-300 bg-gray-50 py-3 px-4 text-sm focus:border-gray-500 focus:ring-gray-500"
+                  disabled={researchLoading}
+                />
+                <button
+                  onClick={handleResearch}
+                  disabled={!researchQuery.trim() || researchLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {researchLoading ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+              
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <p className="text-xs text-blue-900">
+                  <strong>Research Mode:</strong> Ask questions about horses, races, or owners. 
+                  Results will be added to your content automatically.
+                </p>
+              </div>
+              
+              {rawContent && (
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-medium text-gray-500 mb-2">Current Content:</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">{rawContent}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Assets Card */}

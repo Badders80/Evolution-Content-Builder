@@ -1,24 +1,6 @@
-"""
-Evolution Content Builder — FastAPI Backend
-
-This module serves as the API layer for the Evolution Content Builder.
-It is responsible ONLY for:
-- API endpoints for content analysis and generation
-- LLM orchestration (Gemini, OpenAI)
-- Static asset serving
-- HTML/PDF generation from structured content
-
-It MUST NOT:
-- Define brand rules (those live in /config)
-- Make UI decisions (those belong in the React frontend)
-- Store state between requests (stateless API design)
-
-All brand rules, templates, and schemas are loaded from /config via lib/prompts.py.
-See BUILD_PHILOSOPHY.md for complete architectural guidance.
-"""
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from PIL import Image
@@ -28,17 +10,9 @@ import re
 import os
 import json
 import requests
+import random
+import traceback
 from lib.prompts import build_prompt, build_stage1_prompt
-from lib.studio import (
-    STUDIO_TYPES, get_studio_types,
-    build_mindmap_prompt, parse_mindmap_response,
-    build_slides_prompt, parse_slides_response, render_slides_html,
-    build_quiz_prompt, parse_quiz_response,
-    build_flashcard_prompt, parse_flashcard_response,
-    build_audio_script_prompt, parse_audio_script_response,
-    build_report_prompt, parse_report_response,
-    build_infographic_prompt, parse_infographic_response,
-)
 # Temporarily disabled due to version conflicts
 # import torch
 # from diffusers import DiffusionPipeline
@@ -59,17 +33,6 @@ except ImportError:
     print("Google Generative AI not installed. Run: pip install google-generativeai")
 import asyncio
 from typing import Any, Dict, List, Optional
-from backend.models import (
-    AnalyzeRequest,
-    SuggestRequest,
-    EditAnalyzeRequest,
-    RewriteRequest,
-    Stage1AnalyzeRequest,
-    Stage1Section,
-    Stage1Content,
-    Stage1RewriteRequest,
-    StudioRequest,
-)
 
 app = FastAPI()
 
@@ -96,10 +59,6 @@ app.add_middleware(
 if os.path.exists("assets"):
     app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
-# Mount React build static assets (production)
-if os.path.exists("builder-ui/dist/static"):
-    app.mount("/static", StaticFiles(directory="builder-ui/dist/static"), name="react-static")
-
 # API Keys (will be set from environment or config)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -121,12 +80,165 @@ if os.path.exists('lib/taglines.json'):
     with open('lib/taglines.json') as f:
         TAGLINES = json.load(f)
 
-# AI Pipeline (lazy load) - Temporarily disabled
+# AI Pipeline (lazy load) - ComfyUI integration
 # ai_pipeline: Optional[DiffusionPipeline] = None
 
+def get_comfyui_url():
+    """Get ComfyUI server URL from environment or default"""
+    return os.getenv("COMFY_URL", "http://127.0.0.1:8188")
+
+def generate_image_comfyui(prompt: str, negative_prompt: str = "", width: int = 1024, height: int = 768) -> Optional[str]:
+    """
+    Generate image using ComfyUI API.
+    
+    Args:
+        prompt: Positive prompt for image generation
+        negative_prompt: Negative prompt (what to avoid)
+        width: Image width in pixels
+        height: Image height in pixels
+        
+    Returns:
+        Base64 encoded image string or None if generation fails
+    """
+    comfy_url = get_comfyui_url()
+    
+    try:
+        # Check if ComfyUI is running
+        health_response = requests.get(f"{comfy_url}/system_stats", timeout=2)
+        if not health_response.ok:
+            print(f"⚠️ ComfyUI not responding at {comfy_url}")
+            return None
+            
+        # Construct workflow JSON for ComfyUI
+        # This is a basic SDXL workflow - customize based on your ComfyUI setup
+        workflow = {
+            "3": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "seed": random.randint(0, 2**32 - 1),
+                    "steps": 20,
+                    "cfg": 7.0,
+                    "sampler_name": "euler",
+                    "scheduler": "normal",
+                    "denoise": 1.0,
+                    "model": ["4", 0],
+                    "positive": ["6", 0],
+                    "negative": ["7", 0],
+                    "latent_image": ["5", 0]
+                }
+            },
+            "4": {
+                "class_type": "CheckpointLoaderSimple",
+                "inputs": {
+                    "ckpt_name": "sd_xl_base_1.0.safetensors"
+                }
+            },
+            "5": {
+                "class_type": "EmptyLatentImage",
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1
+                }
+            },
+            "6": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "text": prompt,
+                    "clip": ["4", 1]
+                }
+            },
+            "7": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "text": negative_prompt or "blurry, low quality, distorted",
+                    "clip": ["4", 1]
+                }
+            },
+            "8": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["3", 0],
+                    "vae": ["4", 2]
+                }
+            },
+            "9": {
+                "class_type": "SaveImage",
+                "inputs": {
+                    "filename_prefix": "evolution_",
+                    "images": ["8", 0]
+                }
+            }
+        }
+        
+        # Queue the workflow
+        response = requests.post(
+            f"{comfy_url}/prompt",
+            json={"prompt": workflow},
+            timeout=60
+        )
+        
+        if not response.ok:
+            print(f"❌ ComfyUI generation failed: {response.status_code}")
+            return None
+            
+        # Get the prompt ID
+        result = response.json()
+        prompt_id = result.get("prompt_id")
+        
+        if not prompt_id:
+            print("❌ No prompt_id returned from ComfyUI")
+            return None
+            
+        # Poll for completion (simple polling - could be improved with websockets)
+        import time
+        max_wait = 120  # seconds
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait:
+            time.sleep(2)
+            history_response = requests.get(f"{comfy_url}/history/{prompt_id}")
+            
+            if history_response.ok:
+                history = history_response.json()
+                if prompt_id in history:
+                    outputs = history[prompt_id].get("outputs", {})
+                    # Find the SaveImage node output
+                    for node_id, node_output in outputs.items():
+                        if "images" in node_output:
+                            images = node_output["images"]
+                            if images:
+                                # Get the first image
+                                image_info = images[0]
+                                filename = image_info["filename"]
+                                subfolder = image_info.get("subfolder", "")
+                                
+                                # Download the image
+                                image_url = f"{comfy_url}/view"
+                                params = {"filename": filename}
+                                if subfolder:
+                                    params["subfolder"] = subfolder
+                                    
+                                img_response = requests.get(image_url, params=params)
+                                if img_response.ok:
+                                    # Convert to base64
+                                    img_base64 = base64.b64encode(img_response.content).decode('utf-8')
+                                    return f"data:image/png;base64,{img_base64}"
+        
+        print("⏱️ ComfyUI generation timed out")
+        return None
+        
+    except requests.exceptions.ConnectionError:
+        print(f"❌ ComfyUI not running at {comfy_url}. Start ComfyUI server first.")
+        return None
+    except Exception as e:
+        print(f"❌ ComfyUI error: {str(e)}")
+        traceback.print_exc()
+        return None
+
 def get_ai_pipeline():
-    # Temporarily disabled - ComfyUI integration not yet implemented
-    raise NotImplementedError("Image generation via ComfyUI is not yet implemented")
+    """Legacy function - now redirects to ComfyUI"""
+    return "ComfyUI integration active"
 
 TEMPLATES = {
     "pre-race": {
@@ -511,6 +623,74 @@ Format as JSON:
     
     except Exception as e:
         print(f"LLM polish failed: {e}")
+        return {
+            'headline': '',
+            'subheadline': '',
+            'body': raw_text,
+            'polished': False
+        }
+
+class AnalyzeRequest(BaseModel):
+    text: str
+
+
+class SuggestRequest(BaseModel):
+    text: str
+    field: str
+    tone: float
+    temperature: float
+    target_words: int
+
+
+class EditAnalyzeRequest(BaseModel):
+    text: str
+
+
+class RewriteRequest(BaseModel):
+    raw_text: str
+    preset: str
+    tone: Optional[float] = 50
+    length: Optional[str] = "standard"
+    audience: Optional[str] = "owner"
+    style_flags: Optional[List[str]] = None
+
+
+class Stage1AnalyzeRequest(BaseModel):
+    text: str
+
+
+class Stage1Section(BaseModel):
+    id: str
+    heading: str
+    body: str
+
+
+class Stage1Content(BaseModel):
+    preset: str
+    audience: str
+    tone: str
+    length: str
+    headline: str
+    subheadline: str
+    sections: List[Stage1Section]
+    quote: str
+    quote_by: str
+    key_points: List[str]
+    social_caption: str
+    meta: dict
+    source: Optional[str] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+
+class Stage1RewriteRequest(BaseModel):
+    preset: str = Field(..., description="pre_race | post_race | race_announcement | trainer_update")
+    audience: str = Field(..., description="investor | owner | social | mixed")
+    tone: str = Field(..., description="formal | balanced | conversational")
+    length: str = Field(..., description="short | standard | long")
+    raw_text: str
+
+
 @app.post("/edit/analyze")
 async def edit_analyze(req: EditAnalyzeRequest):
     """Analyze text for length, readability band, and basic keywords."""
@@ -610,141 +790,6 @@ async def stage1_rewrite(req: Stage1RewriteRequest):
         fallback["error"] = "gemini_rewrite_failed"
         fallback["message"] = "Gemini rewrite failed; returning fallback content."
         return JSONResponse(status_code=502, content=fallback)
-
-
-# ============================================================
-# STUDIO ENDPOINTS (NotebookLM-style features)
-# ============================================================
-
-class StudioRequest(BaseModel):
-    content: str
-    output_type: str  # mindmap, slides, quiz, flashcards, audio_script, report
-    title: Optional[str] = None
-
-
-@app.get("/studio/types")
-async def get_available_studio_types():
-    """Get available Studio output types."""
-    return get_studio_types()
-
-
-@app.post("/studio/generate")
-async def studio_generate(req: StudioRequest):
-    """Generate Studio content (mind map, slides, quiz, etc.)."""
-    output_type = req.output_type.lower()
-    content = req.content.strip()
-    title = req.title
-    
-    if not content:
-        return JSONResponse(status_code=400, content={"error": "Content is required"})
-    
-    if output_type not in STUDIO_TYPES:
-        return JSONResponse(status_code=400, content={
-            "error": f"Invalid output_type. Valid types: {list(STUDIO_TYPES.keys())}"
-        })
-    
-    # Build prompt based on output type
-    if output_type == "mindmap":
-        prompt = build_mindmap_prompt(content, title)
-    elif output_type == "slides":
-        prompt = build_slides_prompt(content, title)
-    elif output_type == "quiz":
-        prompt = build_quiz_prompt(content)
-    elif output_type == "flashcards":
-        prompt = build_flashcard_prompt(content)
-    elif output_type == "audio_script":
-        prompt = build_audio_script_prompt(content, title)
-    elif output_type == "report":
-        prompt = build_report_prompt(content, title)
-    elif output_type == "infographic":
-        prompt = build_infographic_prompt(content, title)
-    else:
-        return JSONResponse(status_code=400, content={"error": "Unknown output type"})
-    
-    # Call Gemini
-    if not GEMINI_AVAILABLE:
-        return JSONResponse(status_code=503, content={"error": "Gemini API not available"})
-    
-    try:
-        api_key = os.getenv("GEMINI_API_KEY", "")
-        if not api_key:
-            return JSONResponse(status_code=503, content={"error": "GEMINI_API_KEY not set"})
-        
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(prompt)
-        raw_output = response.text
-        
-        # Parse response based on output type
-        if output_type == "mindmap":
-            result = parse_mindmap_response(raw_output)
-            return {
-                "type": "mindmap",
-                "format": "mermaid",
-                "content": result,
-                "title": title or "Mind Map"
-            }
-        elif output_type == "slides":
-            slides = parse_slides_response(raw_output)
-            html = render_slides_html(slides, title or "Presentation")
-            return {
-                "type": "slides",
-                "format": "json",
-                "slides": slides,
-                "html": html,
-                "title": title or "Presentation"
-            }
-        elif output_type == "quiz":
-            quiz = parse_quiz_response(raw_output)
-            return {
-                "type": "quiz",
-                "format": "json",
-                "questions": quiz,
-                "total_questions": len(quiz)
-            }
-        elif output_type == "flashcards":
-            cards = parse_flashcard_response(raw_output)
-            return {
-                "type": "flashcards",
-                "format": "json",
-                "cards": cards,
-                "total_cards": len(cards)
-            }
-        elif output_type == "audio_script":
-            script = parse_audio_script_response(raw_output)
-            word_count = len(script.split())
-            duration_mins = round(word_count / 150, 1)  # ~150 wpm speaking rate
-            return {
-                "type": "audio_script",
-                "format": "text",
-                "script": script,
-                "word_count": word_count,
-                "estimated_duration": f"{duration_mins} minutes",
-                "title": title or "Audio Overview"
-            }
-        elif output_type == "report":
-            report = parse_report_response(raw_output)
-            return {
-                "type": "report",
-                "format": "markdown",
-                "content": report,
-                "title": title or "Report"
-            }
-        elif output_type == "infographic":
-            infographic = parse_infographic_response(raw_output)
-            return {
-                "type": "infographic",
-                "format": "json",
-                "data": infographic,
-                "title": infographic.get("title", title or "Infographic")
-            }
-        
-    except Exception as exc:
-        print(f"Studio generation failed: {exc}")
-        return JSONResponse(status_code=500, content={
-            "error": "Generation failed",
-            "message": str(exc)
-        })
 
 
 @app.post("/analyze")
@@ -857,16 +902,12 @@ Generate only the {field} text, no explanations."""
         }
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def index():
-    """Redirect to React frontend. In production, serve built dist instead."""
-    # Check if React build exists (production)
-    dist_index = "builder-ui/dist/index.html"
-    if os.path.exists(dist_index):
-        with open(dist_index) as f:
-            return HTMLResponse(f.read())
-    # Development: redirect to Vite dev server
-    return RedirectResponse(url="http://localhost:5173", status_code=302)
+    if os.path.exists('index.html'):
+        with open('index.html') as f:
+            return f.read()
+    return "<h1>Evolution Content Builder</h1><p>index.html not found</p>"
 
 @app.get("/api/taglines")
 async def get_taglines():
@@ -1543,21 +1584,54 @@ async def generate(
     })
 
 @app.post("/api/generate_image")
-async def generate_image(prompt: str = Form(...)):
-    """Separate endpoint for AI image generation"""
+async def generate_image(
+    prompt: str = Form(...),
+    negative_prompt: str = Form(""),
+    width: int = Form(1024),
+    height: int = Form(768)
+):
+    """
+    Generate image using ComfyUI SDXL workflow.
+    
+    Args:
+        prompt: Positive prompt describing desired image
+        negative_prompt: What to avoid in the image
+        width: Image width (default 1024)
+        height: Image height (default 768)
+        
+    Returns:
+        JSON with status and base64 image data or error message
+    """
     try:
-        workflow = {
-            "prompt": {
-                "3": {
-                    "inputs": {"text": prompt},
-                    "class_type": "CLIPTextEncode"
-                }
+        print(f"🎨 Generating image with prompt: {prompt[:100]}...")
+        
+        image_data = generate_image_comfyui(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height
+        )
+        
+        if image_data:
+            return {
+                "status": "success",
+                "image": image_data,
+                "prompt": prompt,
+                "dimensions": {"width": width, "height": height}
             }
-        }
-        resp = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow}, timeout=5)
-        return {"status": "queued", "data": resp.json()}
+        else:
+            return {
+                "status": "error",
+                "message": "ComfyUI not available. Ensure ComfyUI is running at http://127.0.0.1:8188"
+            }
+            
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print(f"❌ Image generation error: {str(e)}")
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "message": f"Image generation failed: {str(e)}"
+        }
 
 if __name__ == "__main__":
     import uvicorn

@@ -50,12 +50,16 @@ The **Evolution Content Builder** is an AI-powered content generation platform d
 └─────────────────────────────────────────────────────────────────┘
                            ↕ API Calls
 ┌─────────────────────────────────────────────────────────────────┐
-│                   EXTERNAL SERVICES                              │
+│              EXTERNAL SERVICES (Phase 1 - API)                   │
 ├─────────────────────────────────────────────────────────────────┤
-│  • Google Gemini 2.0 Flash Exp (Primary AI)                     │
-│  • Google Gemini 1.5 Pro (Fallback)                             │
-│  • OpenAI GPT-4 (Optional)                                      │
-│  • ComfyUI + SDXL (Future - Image Generation)                   │
+│  ✅ Google Gemini 3.0 Pro (Audio Transcription)                 │
+│  ✅ Google Gemini 2.0 Flash Exp (Content Generation)            │
+│  ✅ Vertex AI Search (RAG Knowledge Base)                       │
+│  📸 Manual Image Upload (Real horse photos - preferred)         │
+│                                                                  │
+│              FUTURE SERVICES (Phase 2 - Local)                   │
+│  ⏳ Ollama (Local LLM for offline content generation)           │
+│  ⏳ ComfyUI + SDXL + Custom LoRA (Brand-specific images)        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,18 +100,36 @@ The **Evolution Content Builder** is an AI-powered content generation platform d
 - **Pydantic** - Automatic request/response validation, prevents malformed data
 - **Gemini 2.0 Flash Exp** - Google's latest model, faster than GPT-4, excellent for structured output
 
-### AI/ML Stack (Future - Currently Planned)
+### AI Services Strategy
 
-**Image Generation:**
+**Phase 1: API-Driven (Current - Production Ready)**
+- ✅ **Google Gemini 3.0 Pro** - Audio transcription (50MB limit, 100+ languages, free tier)
+- ✅ **Google Gemini 2.0 Flash Exp** - Content generation with structured outputs
+- ✅ **Vertex AI Search** - RAG queries against Evolution Stables knowledge base
+- ✅ **Manual Image Upload** - Real horse photos (preferred for investors over AI-generated)
+
+**Phase 2: Local Inference (Future - Cost Optimization)**
+
+*Why Local Later:*
+- API approach gets you creating content TODAY
+- Text content is the high-value deliverable (images are secondary)
+- Real photos are more credible for investor reports than AI imagery
+- Local setup requires: GPU, model downloads, maintenance overhead
+
+*Planned Components:*
+
+**Local LLM (Offline Content Generation):**
+- Ollama for model management
+- Mistral 7B or Llama 3 8B (GGUF quantized)
+- Benefit: Free, unlimited, offline capability
+- Trade-off: Setup complexity vs Gemini API simplicity
+
+**Image Generation (Brand-Specific AI Visuals):**
 - ComfyUI (Stable Diffusion orchestration)
-- SDXL Lightning (4-step model for fast generation)
-- Custom LoRA trained on Evolution Stables brand assets
+- SDXL + Custom LoRA trained on Evolution Stables assets
 - Kohya_ss for LoRA training pipeline
-
-**Local LLM (Offline Mode):**
-- Mistral 7B or Llama 3 8B
-- GGUF quantized models for CPU/GPU efficiency
-- Ollama for local model management
+- Benefit: Free, unlimited, knows your brand colors/silks/logo
+- Trade-off: Complex setup + GPU required vs Google Imagen API
 
 ---
 
@@ -792,7 +814,8 @@ test('full content generation workflow', async ({ page }) => {
 - ✅ Brand Bible compliance
 
 ### Phase 2: Image Generation (Next 2-4 weeks)
-- [ ] ComfyUI integration
+- [ ] Phase 2: ComfyUI + Custom LoRA (brand-specific image generation)
+- [ ] Phase 2: Ollama integration (local LLM for offline mode)
 - [ ] SDXL Lightning model setup
 - [ ] Custom Evolution LoRA training
 - [ ] Automated workflow generation
@@ -831,7 +854,9 @@ test('full content generation workflow', async ({ page }) => {
 2. **Single User** - No multi-user support or authentication
    - Impact: Cannot be used by multiple Evolution staff simultaneously
 
-3. **No Image Generation** - ComfyUI integration not yet active
+3. **No AI Image Generation** - Using manual photo uploads (Phase 1 approach)
+   - Real horse photos preferred for investor credibility
+   - ComfyUI + Custom LoRA planned for Phase 2 (brand-specific imagery)
    - Workaround: Users must upload pre-generated images
 
 4. **Limited Error Handling** - API failures show generic error messages
@@ -981,7 +1006,10 @@ The **Evolution Content Builder** represents a complete end-to-end solution for 
 
 ### Next Steps
 1. **User Acceptance Testing** - Get feedback from Evolution staff
-2. **Image Generation** - Complete ComfyUI integration for AI visuals
+2. **Phase 2: Local AI Services**
+   - Ollama integration for offline content generation
+   - ComfyUI + SDXL + Custom LoRA for brand-specific imagery
+   - Cost optimization (free, unlimited inference after setup)
 3. **Production Deployment** - Deploy to cloud (Google Cloud Run recommended)
 4. **Iteration** - Refine prompts based on real-world usage
 

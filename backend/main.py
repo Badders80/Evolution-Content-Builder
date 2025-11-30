@@ -25,8 +25,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import traceback
 import tempfile
-import os
-from backend.logging_utils import setup_logging, log_event
+
+# Import logging utilities
+from backend.logging_utils import log_event
 
 # Import all routers from modules
 from backend.google_seek.router import router as seek_router
@@ -46,24 +47,27 @@ from backend.google_seek.service import (
 # Determine if Gemini is available
 GEMINI_AVAILABLE = bool(GEMINI_API_KEY or PROJECT_ID)
 
-# Import helper functions from app.py (we're consolidating, not deleting)
-# These will be gradually moved into proper modules
+# Import helper functions from centralized utilities
+from backend.core.text_utils import (
+    tokenize_words,
+    compute_readability_band,
+    compute_readability_band_stage1,
+    extract_keywords,
+    build_prompt,
+)
+
+# Import additional helpers from app.py (these will be gradually migrated)
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from app import (
-        tokenize_words,
-        compute_readability_band,
-        extract_keywords,
-        build_prompt,
         generate_with_gemini,
         parse_structured_response,
         stub_structured_content,
         build_stage1_prompt,
         parse_stage1_response,
         build_stage1_stub,
-        compute_readability_band_stage1,
     )
     APP_HELPERS_AVAILABLE = True
 except ImportError:
@@ -81,7 +85,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
-setup_logging()
 
 # CORS Configuration
 app.add_middleware(
@@ -152,18 +155,16 @@ def _vertex_search_configured() -> bool:
 @app.get("/health")
 async def health():
     """System health check - reports status of all integrated services"""
-    services = {
-        "gemini": bool(GEMINI_API_KEY),
-        "vertex_search": _vertex_search_configured(),
-        "duckduckgo": DDG_ENABLED and DDG_AVAILABLE,
-        "app_helpers": APP_HELPERS_AVAILABLE,
-    }
-    log_event("health_check", **services)
     return {
         "status": "ok",
         "backend": "unified",
         "version": "3.0.0",
-        "services": services,
+        "services": {
+            "gemini": bool(GEMINI_API_KEY),
+            "vertex_search": _vertex_search_configured(),
+            "duckduckgo": DDG_ENABLED and DDG_AVAILABLE,
+            "app_helpers": APP_HELPERS_AVAILABLE,
+        },
         "endpoints": {
             "stage1_analyze": "/api/stage1/analyze",
             "stage1_rewrite": "/api/stage1/rewrite",
@@ -492,3 +493,4 @@ if __name__ == "__main__":
     print(f"📚 API Docs: http://localhost:{port}/docs")
     print(f"❤️ Health Check: http://localhost:{port}/health")
     uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
+
