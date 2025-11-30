@@ -53,8 +53,67 @@ function App() {
   const [loadingAnalyze, setLoadingAnalyze] = useState(false)
   const [loadingRewrite, setLoadingRewrite] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  
+  // Multi-input state
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [dragActive, setDragActive] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [showUrlInput, setShowUrlInput] = useState(false)
 
   const toneLabel = useMemo(() => toneFromSlider(toneValue), [toneValue])
+
+  // Handle file upload
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files) return
+    const newFiles = Array.from(files).filter(f => 
+      f.type.startsWith('image/') || f.type === 'application/pdf' || f.type.startsWith('text/')
+    )
+    setUploadedFiles(prev => [...prev, ...newFiles])
+    
+    // Auto-extract text from text files
+    newFiles.forEach(file => {
+      if (file.type.startsWith('text/')) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target?.result as string
+          setRawText(prev => prev + (prev ? '\n\n' : '') + text)
+        }
+        reader.readAsText(file)
+      }
+    })
+  }
+
+  // Handle drag events
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    handleFileUpload(e.dataTransfer.files)
+  }
+
+  // Handle URL input
+  const handleAddUrl = () => {
+    if (urlInput.trim()) {
+      setRawText(prev => prev + (prev ? '\n\n' : '') + `Source URL: ${urlInput.trim()}`)
+      setUrlInput('')
+      setShowUrlInput(false)
+    }
+  }
+
+  // Remove uploaded file
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
+  }
 
   const handleAnalyze = async () => {
     if (!rawText.trim()) return
@@ -198,13 +257,108 @@ function App() {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-800">Raw input</label>
-                <textarea
-                  rows={12}
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  placeholder="Paste trainer notes, race updates, or announcements..."
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-inner focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                />
+                
+                {/* Drag & Drop Zone */}
+                <div
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  className={`relative rounded-xl border-2 border-dashed transition ${
+                    dragActive
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <textarea
+                    rows={8}
+                    value={rawText}
+                    onChange={(e) => setRawText(e.target.value)}
+                    placeholder="Paste trainer notes, race updates, or announcements...&#10;&#10;Or drag & drop files here"
+                    className="w-full rounded-xl border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0"
+                  />
+                  {dragActive && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-gray-900/5">
+                      <p className="text-sm font-semibold text-gray-700">Drop files here</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* File Upload & URL Buttons */}
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload File
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf,text/*"
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      className="hidden"
+                    />
+                  </label>
+                  
+                  <button
+                    onClick={() => setShowUrlInput(!showUrlInput)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Add URL
+                  </button>
+                </div>
+
+                {/* URL Input (conditional) */}
+                {showUrlInput && (
+                  <div className="flex gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                    <input
+                      type="url"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="https://example.com/article"
+                      className="flex-1 rounded-md border-0 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddUrl()}
+                    />
+                    <button
+                      onClick={handleAddUrl}
+                      className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+
+                {/* Uploaded Files Display */}
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                    <p className="text-xs font-semibold text-gray-600">Attached Files:</p>
+                    {uploadedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between rounded-md bg-white px-2 py-1">
+                        <div className="flex items-center gap-2">
+                          {file.type.startsWith('image/') && (
+                            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          <span className="text-xs text-gray-700">{file.name}</span>
+                          <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <button
+                          onClick={() => removeFile(idx)}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleAnalyze}
