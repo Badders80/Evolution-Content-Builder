@@ -97,13 +97,13 @@ function App() {
     })
   }
 
-  // Transcribe audio file using Whisper API
+  // Transcribe audio file using Gemini API
   const transcribeAudio = async (file: File) => {
     try {
       const formData = new FormData()
       formData.append('file', file)
       
-      const response = await fetch(`${apiUrl}/api/transcribe`, {
+      const response = await fetch('/api/transcribe', {
         method: 'POST',
         body: formData
       })
