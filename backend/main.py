@@ -16,13 +16,15 @@ Architecture:
 - No more confusion, no more port conflicts
 """
 import os
+import json
+import asyncio
 import google.auth
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, ValidationError
+from typing import List, Optional, Dict, Any
 import traceback
 import tempfile
 
@@ -34,6 +36,7 @@ from backend.google_seek.router import router as seek_router
 from backend.rag.router import router as rag_router
 from backend.auth.router import router as auth_router
 from backend.web.router import router as web_router
+from backend.models import Stage1Content
 
 # Import configuration and services
 from backend.google_seek.service import (
@@ -474,6 +477,85 @@ async def transcribe_audio(file: UploadFile = File(...)):
         )
 
 # ============================================================================
+# STAGE 2: SMART EDITING (The Copilot)
+# ============================================================================
+
+class InstructRequest(BaseModel):
+    current_content: Dict[str, Any]
+    instruction: str
+
+
+@app.post("/api/stage2/instruct")
+async def stage2_instruct(req: InstructRequest):
+    """
+    Smart Editor Endpoint:
+    Takes current content state + natural language instruction.
+    Returns updated content state (JSON).
+    """
+    output = ""
+    try:
+        prompt = f"""
+        You are the Evolution Content Engine.
+        Your task is to modify a structured document based on a user instruction.
+
+        CURRENT JSON CONTENT:
+        {json.dumps(req.current_content, indent=2)}
+
+        USER INSTRUCTION:
+        "{req.instruction}"
+
+        RULES:
+        1. Return the COMPLETE updated JSON object.
+        2. Maintain the same schema (headline, subheadline, sections[], etc).
+        3. Perform the requested logic (merge sections, rewrite text, change tone, delete, add).
+        4. If the instruction implies a tone shift, rewrite the 'body' fields accordingly.
+        5. Return ONLY valid JSON. No markdown formatting.
+
+        OUTPUT:
+        """
+
+        if not GEMINI_AVAILABLE:
+            raise HTTPException(status_code=500, detail="Gemini not configured")
+
+        try:
+            import google.generativeai as genai
+        except Exception as import_error:
+            raise HTTPException(status_code=500, detail=f"Gemini SDK unavailable: {import_error}")
+
+        if GEMINI_API_KEY:
+            genai.configure(api_key=GEMINI_API_KEY)
+
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        output = response.text or ""
+
+        # Clean markdown if present (robust cleaning)
+        cleaned = output.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+
+        parsed = json.loads(cleaned)
+
+        # Validate schema to ensure we return expected Stage1Content shape
+        validated = Stage1Content.parse_obj(parsed)
+        return validated.dict()
+
+    except json.JSONDecodeError:
+        print(f"JSON Parse Error. Output was: {output}")
+        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Please try again.")
+    except ValidationError as ve:
+        print(f"Schema validation failed: {ve}")
+        raise HTTPException(status_code=500, detail="AI response did not match expected schema.")
+    except Exception as e:
+        print(f"Instruction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI processing failed: {str(e)}")
+
+# ============================================================================
 # MOUNT ALL MODULE ROUTERS
 # ============================================================================
 
@@ -493,4 +575,3 @@ if __name__ == "__main__":
     print(f"📚 API Docs: http://localhost:{port}/docs")
     print(f"❤️ Health Check: http://localhost:{port}/health")
     uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
-
