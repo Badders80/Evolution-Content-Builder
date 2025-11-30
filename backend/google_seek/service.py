@@ -260,14 +260,15 @@ class EvolutionSeek:
             else "No retrieved context is available. Answer without citing internal sources."
         )
 
-        web_section = (
-            f"""
+        if web_sources:
+            web_items = [f"- {w['title']} — {w['url']}\n  {w['snippet']}" for w in web_sources]
+            web_text = os.linesep.join(web_items)
+            web_section = f"""
         WEB CONTEXT (DuckDuckGo snippets):
-        {os.linesep.join([f"- {w['title']} — {w['url']}\n  {w['snippet']}" for w in web_sources])}
+        {web_text}
         """
-            if web_sources
-            else "No external web context is included."
-        )
+        else:
+            web_section = "No external web context is included."
 
         prompt = f"""
         You are the Evolution Stables content engine.
