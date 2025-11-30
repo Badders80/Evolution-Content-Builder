@@ -66,7 +66,13 @@ function App() {
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return
     const newFiles = Array.from(files).filter(f => 
-      f.type.startsWith('image/') || f.type === 'application/pdf' || f.type.startsWith('text/')
+      f.type.startsWith('image/') || 
+      f.type === 'application/pdf' || 
+      f.type.startsWith('text/') ||
+      f.type.startsWith('audio/') ||
+      f.name.endsWith('.m4a') ||
+      f.name.endsWith('.mp3') ||
+      f.name.endsWith('.wav')
     )
     setUploadedFiles(prev => [...prev, ...newFiles])
     
@@ -294,7 +300,7 @@ function App() {
                     <input
                       type="file"
                       multiple
-                      accept="image/*,application/pdf,text/*"
+                      accept="image/*,application/pdf,text/*,audio/*,.m4a,.mp3,.wav"
                       onChange={(e) => handleFileUpload(e.target.files)}
                       className="hidden"
                     />
@@ -341,6 +347,11 @@ function App() {
                           {file.type.startsWith('image/') && (
                             <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          {(file.type.startsWith('audio/') || file.name.endsWith('.m4a')) && (
+                            <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                             </svg>
                           )}
                           <span className="text-xs text-gray-700">{file.name}</span>
